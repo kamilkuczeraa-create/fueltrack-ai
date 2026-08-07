@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>FuelTrack AI</title>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>FuelTrack AI</h1>
+
+<div class="date" id="today"></div>
+
+<div class="card">
+<h2>Dzisiejszy bilans</h2>
+
+<p>🔥 Kalorie: <b id="calories">0</b> kcal</p>
+<p>🥩 Białko: <b id="protein">0</b> g</p>
+<p>🍚 Węglowodany: <b id="carbs">0</b> g</p>
+<p>🥑 Tłuszcz: <b id="fat">0</b> g</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>Dodaj posiłek</h2>
+
+<input id="mealName" placeholder="Nazwa posiłku">
+
+<input id="mealCalories" type="number" placeholder="Kalorie">
+
+<input id="mealProtein" type="number" placeholder="Białko g">
+
+<input id="mealCarbs" type="number" placeholder="Węglowodany g">
+
+<input id="mealFat" type="number" placeholder="Tłuszcz g">
+
+
+<button onclick="addMeal()">
+Dodaj posiłek
+</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>Historia</h2>
+
+<div id="history"></div>
+
+</div>
+
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
