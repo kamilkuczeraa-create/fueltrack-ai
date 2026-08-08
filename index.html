@@ -1,68 +1,129 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>FuelTrack AI</title>
 
-<title>FuelTrack AI</title>
-
-<link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<div class="container">
+  <main class="app">
 
-<h1>FuelTrack AI</h1>
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">FUELTRACK AI</div>
+        <h1>Twoje żywienie</h1>
+      </div>
 
-<div class="date" id="today"></div>
+      <button id="importBtn" class="primary small">
+        ＋ Import Fitatu
+      </button>
 
-<div class="card">
-<h2>Dzisiejszy bilans</h2>
+      <input
+        id="fileInput"
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+      >
+    </header>
 
-<p>🔥 Kalorie: <b id="calories">0</b> kcal</p>
-<p>🥩 Białko: <b id="protein">0</b> g</p>
-<p>🍚 Węglowodany: <b id="carbs">0</b> g</p>
-<p>🥑 Tłuszcz: <b id="fat">0</b> g</p>
+    <section id="status" class="status hidden"></section>
 
-</div>
+    <section class="hero card">
 
+      <div class="hero-title">
 
-<div class="card">
+        <div>
+          <div class="muted">Wybrany dzień</div>
+          <h2 id="selectedDateLabel">Brak danych</h2>
+        </div>
 
-<h2>Dodaj posiłek</h2>
+        <select id="dateSelect" aria-label="Wybierz dzień"></select>
 
-<input id="mealName" placeholder="Nazwa posiłku">
+      </div>
 
-<input id="mealCalories" type="number" placeholder="Kalorie">
+      <div class="stats">
 
-<input id="mealProtein" type="number" placeholder="Białko g">
+        <div>
+          <span>🔥</span>
+          <b id="kcal">0</b>
+          <small>kcal</small>
+        </div>
 
-<input id="mealCarbs" type="number" placeholder="Węglowodany g">
+        <div>
+          <span>🥩</span>
+          <b id="protein">0</b>
+          <small>białka</small>
+        </div>
 
-<input id="mealFat" type="number" placeholder="Tłuszcz g">
+        <div>
+          <span>🍚</span>
+          <b id="carbs">0</b>
+          <small>węglowodanów</small>
+        </div>
 
+        <div>
+          <span>🥑</span>
+          <b id="fat">0</b>
+          <small>tłuszczu</small>
+        </div>
 
-<button onclick="addMeal()">
-Dodaj posiłek
-</button>
+      </div>
 
-</div>
+    </section>
 
+    <section class="card">
 
-<div class="card">
+      <div class="section-head">
+        <h2>Posiłki</h2>
 
-<h2>Historia</h2>
+        <button id="copyBtn" class="secondary">
+          📋 Kopiuj pełny raport
+        </button>
+      </div>
 
-<div id="history"></div>
+      <div id="meals"></div>
 
-</div>
+    </section>
 
+    <section class="card">
 
-</div>
+      <div class="section-head">
+        <h2>Makro i mikro</h2>
+      </div>
 
+      <div id="micros" class="micro-grid"></div>
 
-<script src="app.js"></script>
+    </section>
+
+    <section class="card">
+
+      <div class="section-head">
+        <h2>Historia</h2>
+
+        <span id="dayCount" class="pill">
+          0 dni
+        </span>
+      </div>
+
+      <div id="history"></div>
+
+    </section>
+
+    <footer>
+      FuelTrack AI v0.2 · dane zapisują się lokalnie na tym urządzeniu
+    </footer>
+
+  </main>
+
+  <script src="app.js"></script>
 
 </body>
 </html>
