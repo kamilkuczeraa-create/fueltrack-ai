@@ -1,17 +1,22 @@
 /* =========================================================
-   FUELTRACK AI v0.4
+   FUELTRACK AI v0.5
    - Fitatu CSV
    - trwała baza
-   - migracja/odzyskiwanie starych danych
+   - migracja starych danych
    - treningi
+   - bilans dnia
+   - paski postępu
+   - zwijane makro/mikro
+   - zwijana historia
    - raport tekstowy
 ========================================================= */
 
-const FOOD_KEY = "fueltrack_food_v04";
-const WORKOUT_KEY = "fueltrack_workouts_v04";
-const GOALS_KEY = "fueltrack_goals_v04";
+const FOOD_KEY = "fueltrack_food_v05";
+const WORKOUT_KEY = "fueltrack_workouts_v05";
+const GOALS_KEY = "fueltrack_goals_v05";
 
-const OLD_KEYS = [
+const OLD_FOOD_KEYS = [
+  "fueltrack_food_v04",
   "fueltrack_fitatu_v03",
   "fueltrack_fitatu_v02",
   "fueltrack_fitatu",
@@ -19,6 +24,12 @@ const OLD_KEYS = [
   "fitatu_data",
   "fueltrack_data",
   "fueltrack_rows"
+];
+
+const OLD_WORKOUT_KEYS = [
+  "fueltrack_workouts_v04",
+  "fueltrack_workouts_v03",
+  "fueltrack_workouts_v02"
 ];
 
 const DEFAULT_GOALS = {
@@ -73,7 +84,11 @@ function $(id) {
 }
 
 function num(value) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return 0;
   }
 
@@ -107,6 +122,7 @@ function status(text, error = false) {
   if (!box) {
     box = document.createElement("div");
     box.id = "status";
+
     box.style.cssText = `
       position:fixed;
       left:20px;
@@ -121,10 +137,13 @@ function status(text, error = false) {
       text-align:center;
       box-shadow:0 8px 30px rgba(0,0,0,.2);
     `;
+
     document.body.appendChild(box);
   }
 
-  box.style.background = error ? "#b42318" : "#16794b";
+  box.style.background =
+    error ? "#b42318" : "#16794b";
+
   box.textContent = text;
   box.style.display = "block";
 
@@ -137,7 +156,7 @@ function status(text, error = false) {
 
 
 /* =========================================================
-   STORAGE — ODCZYT
+   STORAGE
 ========================================================= */
 
 function safeParse(value) {
@@ -171,7 +190,10 @@ function normaliseRows(rows) {
   }
 
   return rows
-    .filter(row => row && typeof row === "object")
+    .filter(row =>
+      row &&
+      typeof row === "object"
+    )
     .map(row => {
 
       const copy = { ...row };
@@ -185,27 +207,25 @@ function normaliseRows(rows) {
 }
 
 
-/*
-   Najważniejsza część:
-   przeszukujemy localStorage i próbujemy znaleźć
-   poprzednią bazę Fitatu.
-*/
+/* =========================================================
+   ODZYSKIWANIE STARYCH DANYCH FITATU
+========================================================= */
 
 function recoverOldFoodData() {
 
   const candidates = [];
 
-  for (let i = 0; i < localStorage.length; i++) {
+  /* Najpierw znane klucze */
 
-    const key = localStorage.key(i);
+  for (const key of OLD_FOOD_KEYS) {
 
-    if (!key) continue;
-
-    const raw = localStorage.getItem(key);
+    const raw =
+      localStorage.getItem(key);
 
     if (!raw) continue;
 
-    const parsed = safeParse(raw);
+    const parsed =
+      safeParse(raw);
 
     if (looksLikeFitatu(parsed)) {
 
@@ -215,11 +235,6 @@ function recoverOldFoodData() {
       });
 
     }
-
-    /*
-      Czasami dane mogą być zapisane jako:
-      { rows: [...] }
-    */
 
     if (
       parsed &&
@@ -234,70 +249,191 @@ function recoverOldFoodData() {
       });
 
     }
-
   }
 
-  /*
-     Najpierw próbujemy znanych kluczy.
-  */
 
-  for (const key of OLD_KEYS) {
+  /* Potem przeszukujemy cały localStorage */
 
-    const raw = localStorage.getItem(key);
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
+
+    const key =
+      localStorage.key(i);
+
+    if (!key) continue;
+
+    if (
+      OLD_FOOD_KEYS.includes(key) ||
+      key === FOOD_KEY
+    ) {
+      continue;
+    }
+
+    const raw =
+      localStorage.getItem(key);
 
     if (!raw) continue;
 
-    const parsed = safeParse(raw);
+    const parsed =
+      safeParse(raw);
 
     if (looksLikeFitatu(parsed)) {
-      return normaliseRows(parsed);
+
+      candidates.push({
+        key,
+        rows: normaliseRows(parsed)
+      });
+
     }
 
     if (
       parsed &&
+      typeof parsed === "object" &&
       Array.isArray(parsed.rows) &&
       looksLikeFitatu(parsed.rows)
     ) {
-      return normaliseRows(parsed.rows);
+
+      candidates.push({
+        key,
+        rows: normaliseRows(parsed.rows)
+      });
+
     }
-
   }
 
-  /*
-     Następnie wszystko, co znaleźliśmy.
-  */
 
-  if (candidates.length) {
-
-    candidates.sort(
-      (a, b) =>
-        b.rows.length - a.rows.length
-    );
-
-    return candidates[0].rows;
+  if (!candidates.length) {
+    return [];
   }
 
-  return [];
+  candidates.sort(
+    (a, b) =>
+      b.rows.length -
+      a.rows.length
+  );
+
+  return candidates[0].rows;
 }
 
 
 /* =========================================================
-   STORAGE — ZAPIS
+   STORAGE — FOOD
 ========================================================= */
 
 function saveFood() {
+
   localStorage.setItem(
     FOOD_KEY,
     JSON.stringify(foodRows)
   );
 }
 
+function loadFood() {
+
+  const current =
+    safeParse(
+      localStorage.getItem(FOOD_KEY)
+    );
+
+  if (
+    Array.isArray(current) &&
+    current.length
+  ) {
+
+    foodRows =
+      normaliseRows(current);
+
+    return;
+  }
+
+
+  if (looksLikeFitatu(current)) {
+
+    foodRows =
+      normaliseRows(current);
+
+    return;
+  }
+
+
+  const recovered =
+    recoverOldFoodData();
+
+  if (recovered.length) {
+
+    foodRows =
+      recovered;
+
+    saveFood();
+
+    console.log(
+      "FuelTrack AI: odzyskano stare dane Fitatu:",
+      foodRows.length
+    );
+
+  } else {
+
+    foodRows = [];
+
+  }
+}
+
+
+/* =========================================================
+   STORAGE — WORKOUTS
+========================================================= */
+
 function saveWorkouts() {
+
   localStorage.setItem(
     WORKOUT_KEY,
     JSON.stringify(workouts)
   );
 }
+
+function loadWorkouts() {
+
+  const current =
+    safeParse(
+      localStorage.getItem(WORKOUT_KEY)
+    );
+
+  if (Array.isArray(current)) {
+
+    workouts = current;
+
+    return;
+  }
+
+
+  for (const key of OLD_WORKOUT_KEYS) {
+
+    const old =
+      safeParse(
+        localStorage.getItem(key)
+      );
+
+    if (Array.isArray(old)) {
+
+      workouts = old;
+
+      saveWorkouts();
+
+      return;
+    }
+  }
+
+
+  workouts = [];
+}
+
+
+/* =========================================================
+   CELE
+========================================================= */
 
 function loadGoals() {
 
@@ -312,42 +448,16 @@ function loadGoals() {
   };
 }
 
+
+/* =========================================================
+   STARTOWE ŁADOWANIE
+========================================================= */
+
 function loadAll() {
 
-  const savedFood =
-    safeParse(
-      localStorage.getItem(FOOD_KEY)
-    );
+  loadFood();
 
-  if (looksLikeFitatu(savedFood)) {
-
-    foodRows =
-      normaliseRows(savedFood);
-
-  } else {
-
-    /*
-       Automatyczne odzyskanie poprzedniej bazy.
-    */
-
-    foodRows =
-      recoverOldFoodData();
-
-    if (foodRows.length) {
-      saveFood();
-    }
-
-  }
-
-  const savedWorkouts =
-    safeParse(
-      localStorage.getItem(WORKOUT_KEY)
-    );
-
-  workouts =
-    Array.isArray(savedWorkouts)
-      ? savedWorkouts
-      : [];
+  loadWorkouts();
 
 }
 
@@ -362,6 +472,7 @@ function parseCSV(text) {
     text.replace(/^\uFEFF/, "");
 
   const rows = [];
+
   let row = [];
   let cell = "";
   let quoted = false;
@@ -400,8 +511,10 @@ function parseCSV(text) {
       cell = "";
 
     } else if (
-      (char === "\n" ||
-       char === "\r") &&
+      (
+        char === "\n" ||
+        char === "\r"
+      ) &&
       !quoted
     ) {
 
@@ -421,7 +534,9 @@ function parseCSV(text) {
             value.trim() !== ""
         )
       ) {
+
         rows.push(row);
+
       }
 
       row = [];
@@ -432,6 +547,7 @@ function parseCSV(text) {
 
     }
   }
+
 
   if (
     cell !== "" ||
@@ -446,19 +562,23 @@ function parseCSV(text) {
           value.trim() !== ""
       )
     ) {
-      rows.push(row);
-    }
 
+      rows.push(row);
+
+    }
   }
+
 
   if (!rows.length) {
     return [];
   }
 
+
   const headers =
     rows[0].map(
       h => h.trim()
     );
+
 
   return rows
     .slice(1)
@@ -483,8 +603,9 @@ function parseCSV(text) {
     })
     .filter(object =>
       Object.values(object)
-        .some(value =>
-          value !== ""
+        .some(
+          value =>
+            value !== ""
         )
     );
 }
@@ -497,6 +618,7 @@ function parseCSV(text) {
 function getDates() {
 
   const dates = [
+
     ...foodRows
       .map(row => row["Data"])
       .filter(Boolean),
@@ -504,6 +626,7 @@ function getDates() {
     ...workouts
       .map(workout => workout.date)
       .filter(Boolean)
+
   ];
 
   return [
@@ -534,16 +657,24 @@ function totalsForDate(date) {
   rows.forEach(row => {
 
     totals.kcal +=
-      num(row["kalorie (kcal)"]);
+      num(
+        row["kalorie (kcal)"]
+      );
 
     totals.protein +=
-      num(row["Białka (g)"]);
+      num(
+        row["Białka (g)"]
+      );
 
     totals.carbs +=
-      num(row["Węglowodany (g)"]);
+      num(
+        row["Węglowodany (g)"]
+      );
 
     totals.fat +=
-      num(row["Tłuszcze (g)"]);
+      num(
+        row["Tłuszcze (g)"]
+      );
 
   });
 
@@ -578,26 +709,35 @@ function renderDateSelector() {
       </option>`;
 
     if ($("selectedDateLabel")) {
+
       $("selectedDateLabel")
         .textContent =
         "Brak danych";
+
     }
 
     if ($("dayCount")) {
+
       $("dayCount")
         .textContent =
         "0 dni";
+
     }
 
     return;
   }
 
+
   if (
     !selectedDate ||
     !dates.includes(selectedDate)
   ) {
-    selectedDate = dates[0];
+
+    selectedDate =
+      dates[0];
+
   }
+
 
   select.innerHTML =
     dates.map(date =>
@@ -606,14 +746,19 @@ function renderDateSelector() {
       </option>`
     ).join("");
 
+
   select.value =
     selectedDate;
 
+
   if ($("selectedDateLabel")) {
+
     $("selectedDateLabel")
       .textContent =
       selectedDate;
+
   }
+
 
   if ($("dayCount")) {
 
@@ -626,7 +771,213 @@ function renderDateSelector() {
       }`;
 
   }
+}
 
+
+/* =========================================================
+   BILANS DNIA — PASKI
+========================================================= */
+
+function createBalanceSection() {
+
+  if ($("balanceSection")) {
+    return;
+  }
+
+  const section =
+    document.createElement("section");
+
+  section.id =
+    "balanceSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+    <h2 style="margin:0 0 20px 0;">
+      Bilans dnia
+    </h2>
+
+    <div id="balanceBars"></div>
+  `;
+
+
+  const meals =
+    $("meals");
+
+  if (
+    meals &&
+    meals.parentElement
+  ) {
+
+    meals.parentElement
+      .before(section);
+
+  } else {
+
+    document.body.appendChild(section);
+
+  }
+}
+
+
+function balanceBar(
+  label,
+  value,
+  goal,
+  unit,
+  color
+) {
+
+  const safeGoal =
+    goal > 0 ? goal : 1;
+
+  const percent =
+    Math.min(
+      (value / safeGoal) * 100,
+      100
+    );
+
+  const over =
+    value > goal;
+
+  const difference =
+    Math.abs(
+      value - goal
+    );
+
+  return `
+    <div style="margin-bottom:18px;">
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-end;
+          gap:10px;
+          margin-bottom:7px;
+        "
+      >
+
+        <strong>
+          ${esc(label)}
+        </strong>
+
+        <span
+          style="
+            font-size:14px;
+            font-weight:700;
+          "
+        >
+          ${fmt(value)} / ${fmt(goal)} ${unit}
+        </span>
+
+      </div>
+
+      <div
+        style="
+          width:100%;
+          height:14px;
+          background:#e9edf3;
+          border-radius:999px;
+          overflow:hidden;
+        "
+      >
+
+        <div
+          style="
+            width:${percent}%;
+            height:100%;
+            background:${color};
+            border-radius:999px;
+            transition:width .4s ease;
+          "
+        ></div>
+
+      </div>
+
+      <div
+        style="
+          margin-top:5px;
+          font-size:13px;
+          color:${over ? "#b42318" : "#667085"};
+        "
+      >
+        ${
+          over
+            ? `Przekroczono o ${fmt(difference)} ${unit}`
+            : `Pozostało ${fmt(difference)} ${unit}`
+        }
+      </div>
+
+    </div>
+  `;
+}
+
+
+function renderBalance() {
+
+  const box =
+    $("balanceBars");
+
+  if (!box) return;
+
+  if (!selectedDate) {
+
+    box.innerHTML =
+      `<p>Brak danych.</p>`;
+
+    return;
+  }
+
+
+  const totals =
+    totalsForDate(
+      selectedDate
+    ).totals;
+
+  const goals =
+    loadGoals();
+
+
+  box.innerHTML =
+
+    balanceBar(
+      "🔥 Kalorie",
+      totals.kcal,
+      goals.kcal,
+      "kcal",
+      "#ff6b35"
+    ) +
+
+    balanceBar(
+      "🥩 Białko",
+      totals.protein,
+      goals.protein,
+      "g",
+      "#e63946"
+    ) +
+
+    balanceBar(
+      "🍚 Węglowodany",
+      totals.carbs,
+      goals.carbs,
+      "g",
+      "#e9a23b"
+    ) +
+
+    balanceBar(
+      "🥑 Tłuszcze",
+      totals.fat,
+      goals.fat,
+      "g",
+      "#4caf50"
+    );
 }
 
 
@@ -641,6 +992,7 @@ function renderMeals() {
 
   if (!box) return;
 
+
   if (!selectedDate) {
 
     box.innerHTML =
@@ -649,11 +1001,13 @@ function renderMeals() {
     return;
   }
 
+
   const rows =
     foodRows.filter(
       row =>
         row["Data"] === selectedDate
     );
+
 
   if (!rows.length) {
 
@@ -663,7 +1017,9 @@ function renderMeals() {
     return;
   }
 
+
   const groups = {};
+
 
   rows.forEach(row => {
 
@@ -679,86 +1035,286 @@ function renderMeals() {
 
   });
 
+
   box.innerHTML =
     Object.entries(groups)
-      .map(([meal, products]) => {
+      .map(
+        ([meal, products]) => {
 
-        return `
-          <div class="meal">
-            <h3>${esc(meal)}</h3>
+          return `
+            <div class="meal">
 
-            ${products.map(product => {
+              <h3>
+                ${esc(meal)}
+              </h3>
 
-              const name =
-                product[
-                  "Produkty i potrawy"
-                ] ||
-                "Produkt";
+              ${
+                products
+                  .map(product => {
 
-              const kcal =
-                num(
-                  product[
-                    "kalorie (kcal)"
-                  ]
-                );
+                    const name =
+                      product[
+                        "Produkty i potrawy"
+                      ] ||
+                      "Produkt";
 
-              const protein =
-                num(
-                  product[
-                    "Białka (g)"
-                  ]
-                );
+                    const kcal =
+                      num(
+                        product[
+                          "kalorie (kcal)"
+                        ]
+                      );
 
-              const carbs =
-                num(
-                  product[
-                    "Węglowodany (g)"
-                  ]
-                );
+                    const protein =
+                      num(
+                        product[
+                          "Białka (g)"
+                        ]
+                      );
 
-              const fat =
-                num(
-                  product[
-                    "Tłuszcze (g)"
-                  ]
-                );
+                    const carbs =
+                      num(
+                        product[
+                          "Węglowodany (g)"
+                        ]
+                      );
 
-              return `
-                <div
-                  class="product"
-                  style="
-                    padding:10px 0;
-                    border-bottom:1px solid #eee;
-                  "
-                >
+                    const fat =
+                      num(
+                        product[
+                          "Tłuszcze (g)"
+                        ]
+                      );
 
-                  <strong>
-                    ${esc(name)}
-                  </strong>
+                    return `
+                      <div
+                        class="product"
+                        style="
+                          padding:10px 0;
+                          border-bottom:1px solid #eee;
+                        "
+                      >
 
-                  <div>
-                    ${fmt(kcal)} kcal
-                    · B ${fmt(protein)} g
-                    · W ${fmt(carbs)} g
-                    · T ${fmt(fat)} g
-                  </div>
+                        <strong>
+                          ${esc(name)}
+                        </strong>
 
-                </div>
-              `;
+                        <div>
+                          ${fmt(kcal)} kcal
+                          · B ${fmt(protein)} g
+                          · W ${fmt(carbs)} g
+                          · T ${fmt(fat)} g
+                        </div>
 
-            }).join("")}
+                      </div>
+                    `;
 
-          </div>
-        `;
+                  })
+                  .join("")
+              }
 
-      }).join("");
+            </div>
+          `;
 
+        }
+      )
+      .join("");
 }
 
 
 /* =========================================================
-   MAKRO
+   MAKRO + MIKRO — ZWIJANE
 ========================================================= */
+
+function createNutritionSection() {
+
+  if ($("nutritionSection")) {
+    return;
+  }
+
+  const section =
+    document.createElement("section");
+
+  section.id =
+    "nutritionSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:0;
+    margin:22px 0;
+    box-shadow:0 4px 20px rgba(0,0,0,.06);
+    overflow:hidden;
+  `;
+
+  section.innerHTML = `
+
+    <button
+      id="nutritionToggle"
+      type="button"
+      style="
+        width:100%;
+        border:0;
+        background:white;
+        padding:24px;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        text-align:left;
+        font-size:22px;
+        font-weight:800;
+      "
+    >
+
+      <span>
+        Makro i mikro
+      </span>
+
+      <span id="nutritionArrow">
+        ▼
+      </span>
+
+    </button>
+
+
+    <div
+      id="nutritionContent"
+      style="
+        display:none;
+        padding:0 24px 24px 24px;
+      "
+    >
+
+      <h3>
+        Makro
+      </h3>
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:12px;
+          margin-bottom:25px;
+        "
+      >
+
+        <div
+          style="
+            background:#f5f6fa;
+            border-radius:18px;
+            padding:16px;
+          "
+        >
+          <strong>🔥 Kalorie</strong>
+          <div
+            id="macroKcal"
+            style="font-size:22px;font-weight:800;"
+          >
+            0
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#f5f6fa;
+            border-radius:18px;
+            padding:16px;
+          "
+        >
+          <strong>🥩 Białko</strong>
+          <div
+            id="macroProtein"
+            style="font-size:22px;font-weight:800;"
+          >
+            0 g
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#f5f6fa;
+            border-radius:18px;
+            padding:16px;
+          "
+        >
+          <strong>🍚 Węglowodany</strong>
+          <div
+            id="macroCarbs"
+            style="font-size:22px;font-weight:800;"
+          >
+            0 g
+          </div>
+        </div>
+
+        <div
+          style="
+            background:#f5f6fa;
+            border-radius:18px;
+            padding:16px;
+          "
+        >
+          <strong>🥑 Tłuszcz</strong>
+          <div
+            id="macroFat"
+            style="font-size:22px;font-weight:800;"
+          >
+            0 g
+          </div>
+        </div>
+
+      </div>
+
+
+      <h3>
+        Mikro
+      </h3>
+
+      <div id="micros"></div>
+
+    </div>
+  `;
+
+
+  const history =
+    $("history");
+
+  if (
+    history &&
+    history.parentElement
+  ) {
+
+    history.parentElement
+      .before(section);
+
+  } else {
+
+    document.body.appendChild(section);
+
+  }
+
+
+  $("nutritionToggle").onclick =
+    () => {
+
+      const content =
+        $("nutritionContent");
+
+      const arrow =
+        $("nutritionArrow");
+
+      const open =
+        content.style.display ===
+        "none";
+
+      content.style.display =
+        open ? "block" : "none";
+
+      arrow.textContent =
+        open ? "▲" : "▼";
+
+    };
+}
+
 
 function renderMacro() {
 
@@ -770,32 +1326,40 @@ function renderMacro() {
   const totals =
     result.totals;
 
-  if ($("kcal")) {
-    $("kcal").textContent =
-      fmt(totals.kcal);
+
+  if ($("macroKcal")) {
+
+    $("macroKcal")
+      .textContent =
+      `${fmt(totals.kcal)} kcal`;
+
   }
 
-  if ($("protein")) {
-    $("protein").textContent =
-      fmt(totals.protein);
+  if ($("macroProtein")) {
+
+    $("macroProtein")
+      .textContent =
+      `${fmt(totals.protein)} g`;
+
   }
 
-  if ($("carbs")) {
-    $("carbs").textContent =
-      fmt(totals.carbs);
+  if ($("macroCarbs")) {
+
+    $("macroCarbs")
+      .textContent =
+      `${fmt(totals.carbs)} g`;
+
   }
 
-  if ($("fat")) {
-    $("fat").textContent =
-      fmt(totals.fat);
-  }
+  if ($("macroFat")) {
 
+    $("macroFat")
+      .textContent =
+      `${fmt(totals.fat)} g`;
+
+  }
 }
 
-
-/* =========================================================
-   MIKRO
-========================================================= */
 
 function renderMicro() {
 
@@ -804,11 +1368,13 @@ function renderMicro() {
 
   if (!box) return;
 
+
   const rows =
     foodRows.filter(
       row =>
         row["Data"] === selectedDate
     );
+
 
   if (!rows.length) {
 
@@ -817,6 +1383,7 @@ function renderMicro() {
 
     return;
   }
+
 
   box.innerHTML =
     MICRO_COLUMNS
@@ -831,16 +1398,18 @@ function renderMicro() {
               0
             );
 
+
           if (!total) {
             return "";
           }
+
 
           return `
             <div
               style="
                 display:flex;
                 justify-content:space-between;
-                padding:7px 0;
+                padding:8px 0;
                 border-bottom:1px solid #eee;
               "
             >
@@ -860,12 +1429,11 @@ function renderMicro() {
         }
       )
       .join("");
-
 }
 
 
 /* =========================================================
-   TRENINGI — UI
+   TRENINGI
 ========================================================= */
 
 function createWorkoutSection() {
@@ -874,10 +1442,6 @@ function createWorkoutSection() {
     return;
   }
 
-  /*
-     Nie wymagamy zmian w index.html.
-     Cała sekcja jest tworzona tutaj.
-  */
 
   const section =
     document.createElement("section");
@@ -892,6 +1456,7 @@ function createWorkoutSection() {
     margin:22px 0;
     box-shadow:0 4px 20px rgba(0,0,0,.06);
   `;
+
 
   section.innerHTML = `
 
@@ -911,6 +1476,7 @@ function createWorkoutSection() {
 
       <button
         id="addWorkoutBtn"
+        type="button"
         style="
           border:0;
           border-radius:14px;
@@ -926,7 +1492,9 @@ function createWorkoutSection() {
 
     </div>
 
+
     <div id="workouts"></div>
+
 
     <div
       id="workoutForm"
@@ -939,13 +1507,17 @@ function createWorkoutSection() {
       "
     >
 
-      <h3>Nowy trening</h3>
+      <h3>
+        Nowy trening
+      </h3>
+
 
       <input
         id="wType"
         placeholder="Rodzaj, np. Easy Run / Interwały"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
+
 
       <input
         id="wDistance"
@@ -955,17 +1527,20 @@ function createWorkoutSection() {
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
 
+
       <input
         id="wTime"
         placeholder="Czas, np. 52:34"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
 
+
       <input
         id="wPace"
         placeholder="Tempo, np. 5:18/km"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
+
 
       <input
         id="wHr"
@@ -974,12 +1549,14 @@ function createWorkoutSection() {
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
 
+
       <input
         id="wMaxHr"
         type="number"
         placeholder="Maksymalne tętno"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
+
 
       <input
         id="wCalories"
@@ -988,12 +1565,14 @@ function createWorkoutSection() {
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
 
+
       <input
         id="wCadence"
         type="number"
         placeholder="Kadencja"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
+
 
       <input
         id="wElevation"
@@ -1002,12 +1581,14 @@ function createWorkoutSection() {
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       >
 
+
       <textarea
         id="wNote"
         placeholder="Odczucia / notatka"
         rows="3"
         style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
       ></textarea>
+
 
       <div
         style="
@@ -1019,6 +1600,7 @@ function createWorkoutSection() {
 
         <button
           id="saveWorkoutBtn"
+          type="button"
           style="
             flex:1;
             border:0;
@@ -1032,8 +1614,10 @@ function createWorkoutSection() {
           Zapisz trening
         </button>
 
+
         <button
           id="cancelWorkoutBtn"
+          type="button"
           style="
             flex:1;
             border:0;
@@ -1051,10 +1635,6 @@ function createWorkoutSection() {
     </div>
   `;
 
-  /*
-     Wstawiamy sekcję przed Historią,
-     a jeśli jej nie znajdziemy — na końcu body.
-  */
 
   const history =
     $("history");
@@ -1073,13 +1653,10 @@ function createWorkoutSection() {
 
   }
 
+
   setupWorkoutEvents();
 }
 
-
-/* =========================================================
-   TRENINGI — OBSŁUGA
-========================================================= */
 
 function setupWorkoutEvents() {
 
@@ -1091,6 +1668,7 @@ function setupWorkoutEvents() {
 
   const cancel =
     $("cancelWorkoutBtn");
+
 
   if (add) {
 
@@ -1106,9 +1684,11 @@ function setupWorkoutEvents() {
         return;
       }
 
+
       $("workoutForm")
         .style.display =
         "block";
+
 
       $("workoutForm")
         .scrollIntoView({
@@ -1119,6 +1699,7 @@ function setupWorkoutEvents() {
     };
 
   }
+
 
   if (cancel) {
 
@@ -1132,13 +1713,15 @@ function setupWorkoutEvents() {
 
   }
 
+
   if (save) {
 
-    save.onclick = saveWorkout;
+    save.onclick =
+      saveWorkout;
 
   }
-
 }
+
 
 function saveWorkout() {
 
@@ -1152,6 +1735,7 @@ function saveWorkout() {
     return;
   }
 
+
   const workout = {
 
     id:
@@ -1164,7 +1748,9 @@ function saveWorkout() {
       $("wType").value.trim(),
 
     distance:
-      num($("wDistance").value),
+      num(
+        $("wDistance").value
+      ),
 
     time:
       $("wTime").value.trim(),
@@ -1173,24 +1759,35 @@ function saveWorkout() {
       $("wPace").value.trim(),
 
     hr:
-      num($("wHr").value),
+      num(
+        $("wHr").value
+      ),
 
     maxHr:
-      num($("wMaxHr").value),
+      num(
+        $("wMaxHr").value
+      ),
 
     calories:
-      num($("wCalories").value),
+      num(
+        $("wCalories").value
+      ),
 
     cadence:
-      num($("wCadence").value),
+      num(
+        $("wCadence").value
+      ),
 
     elevation:
-      num($("wElevation").value),
+      num(
+        $("wElevation").value
+      ),
 
     note:
       $("wNote").value.trim()
 
   };
+
 
   if (
     !workout.type &&
@@ -1206,9 +1803,11 @@ function saveWorkout() {
     return;
   }
 
+
   workouts.push(workout);
 
   saveWorkouts();
+
 
   [
     "wType",
@@ -1229,11 +1828,15 @@ function saveWorkout() {
 
   });
 
+
   $("workoutForm")
     .style.display =
     "none";
 
+
   renderWorkouts();
+
+  renderHistory();
 
   status(
     "Trening zapisany."
@@ -1252,11 +1855,13 @@ function renderWorkouts() {
 
   if (!box) return;
 
+
   const list =
     workouts.filter(
       workout =>
         workout.date === selectedDate
     );
+
 
   if (!list.length) {
 
@@ -1273,6 +1878,7 @@ function renderWorkouts() {
 
     return;
   }
+
 
   box.innerHTML =
     list.map(workout => {
@@ -1300,6 +1906,7 @@ function renderWorkouts() {
             )}
           </div>
 
+
           <div
             style="
               display:grid;
@@ -1310,85 +1917,125 @@ function renderWorkouts() {
 
             ${
               workout.distance
-                ? `<div>
+                ? `
+                  <div>
                     <small>Dystans</small>
                     <br>
-                    <b>${fmt(workout.distance)} km</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.distance)} km
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.time
-                ? `<div>
+                ? `
+                  <div>
                     <small>Czas</small>
                     <br>
-                    <b>${esc(workout.time)}</b>
-                  </div>`
+                    <b>
+                      ${esc(workout.time)}
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.pace
-                ? `<div>
+                ? `
+                  <div>
                     <small>Tempo</small>
                     <br>
-                    <b>${esc(workout.pace)}</b>
-                  </div>`
+                    <b>
+                      ${esc(workout.pace)}
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.hr
-                ? `<div>
+                ? `
+                  <div>
                     <small>Śr. HR</small>
                     <br>
-                    <b>${fmt(workout.hr)}</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.hr)}
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.maxHr
-                ? `<div>
+                ? `
+                  <div>
                     <small>Max HR</small>
                     <br>
-                    <b>${fmt(workout.maxHr)}</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.maxHr)}
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.calories
-                ? `<div>
+                ? `
+                  <div>
                     <small>Kalorie</small>
                     <br>
-                    <b>${fmt(workout.calories)} kcal</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.calories)} kcal
+                    </b>
+                  </div>
+                `
                 : ""
             }
+
 
             ${
               workout.cadence
-                ? `<div>
+                ? `
+                  <div>
                     <small>Kadencja</small>
                     <br>
-                    <b>${fmt(workout.cadence)}</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.cadence)}
+                    </b>
+                  </div>
+                `
                 : ""
             }
 
+
             ${
               workout.elevation
-                ? `<div>
+                ? `
+                  <div>
                     <small>Przewyższenie</small>
                     <br>
-                    <b>${fmt(workout.elevation)} m</b>
-                  </div>`
+                    <b>
+                      ${fmt(workout.elevation)} m
+                    </b>
+                  </div>
+                `
                 : ""
             }
 
           </div>
+
 
           ${
             workout.note
@@ -1406,8 +2053,10 @@ function renderWorkouts() {
               : ""
           }
 
+
           <button
             data-delete-workout="${esc(workout.id)}"
+            type="button"
             style="
               margin-top:14px;
               border:0;
@@ -1426,6 +2075,7 @@ function renderWorkouts() {
 
     }).join("");
 
+
   box
     .querySelectorAll(
       "[data-delete-workout]"
@@ -1442,9 +2092,11 @@ function renderWorkouts() {
           return;
         }
 
+
         const id =
           button.dataset
             .deleteWorkout;
+
 
         workouts =
           workouts.filter(
@@ -1453,9 +2105,12 @@ function renderWorkouts() {
               String(id)
           );
 
+
         saveWorkouts();
 
         renderWorkouts();
+
+        renderHistory();
 
         status(
           "Trening usunięty."
@@ -1464,13 +2119,130 @@ function renderWorkouts() {
       };
 
     });
-
 }
 
 
 /* =========================================================
-   HISTORIA
+   HISTORIA — ZWIJANA
 ========================================================= */
+
+function createHistorySection() {
+
+  if ($("historySection")) {
+    return;
+  }
+
+
+  const section =
+    document.createElement("section");
+
+  section.id =
+    "historySection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    margin:22px 0;
+    box-shadow:0 4px 20px rgba(0,0,0,.06);
+    overflow:hidden;
+  `;
+
+
+  section.innerHTML = `
+
+    <button
+      id="historyToggle"
+      type="button"
+      style="
+        width:100%;
+        border:0;
+        background:white;
+        padding:24px;
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        text-align:left;
+        font-size:22px;
+        font-weight:800;
+      "
+    >
+
+      <span>
+        Historia
+      </span>
+
+      <span
+        style="
+          display:flex;
+          align-items:center;
+          gap:10px;
+        "
+      >
+
+        <span
+          id="historyCount"
+          style="
+            font-size:14px;
+            background:#eef2ff;
+            color:#3730a3;
+            border-radius:999px;
+            padding:7px 12px;
+          "
+        >
+          0 dni
+        </span>
+
+        <span id="historyArrow">
+          ▼
+        </span>
+
+      </span>
+
+    </button>
+
+
+    <div
+      id="historyContent"
+      style="
+        display:none;
+        padding:0 24px 24px 24px;
+      "
+    >
+
+      <div id="history"></div>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    section
+  );
+
+
+  $("historyToggle").onclick =
+    () => {
+
+      const content =
+        $("historyContent");
+
+      const arrow =
+        $("historyArrow");
+
+      const open =
+        content.style.display ===
+        "none";
+
+      content.style.display =
+        open ? "block" : "none";
+
+      arrow.textContent =
+        open ? "▲" : "▼";
+
+    };
+}
+
 
 function renderHistory() {
 
@@ -1479,8 +2251,23 @@ function renderHistory() {
 
   if (!box) return;
 
+
   const dates =
     getDates();
+
+
+  if ($("historyCount")) {
+
+    $("historyCount")
+      .textContent =
+      `${dates.length} ${
+        dates.length === 1
+          ? "dzień"
+          : "dni"
+      }`;
+
+  }
+
 
   if (!dates.length) {
 
@@ -1489,6 +2276,7 @@ function renderHistory() {
 
     return;
   }
+
 
   box.innerHTML =
     dates.map(date => {
@@ -1501,6 +2289,7 @@ function renderHistory() {
           workout =>
             workout.date === date
         ).length;
+
 
       return `
         <div
@@ -1516,6 +2305,7 @@ function renderHistory() {
 
           <button
             data-history-date="${esc(date)}"
+            type="button"
             style="
               border:0;
               background:none;
@@ -1525,6 +2315,7 @@ function renderHistory() {
           >
             ${esc(date)}
           </button>
+
 
           <span>
             ${fmt(result.totals.kcal)}
@@ -1541,6 +2332,7 @@ function renderHistory() {
 
     }).join("");
 
+
   box
     .querySelectorAll(
       "[data-history-date]"
@@ -1553,7 +2345,9 @@ function renderHistory() {
           button.dataset
             .historyDate;
 
+
         renderAll();
+
 
         window.scrollTo({
           top:0,
@@ -1563,7 +2357,6 @@ function renderHistory() {
       };
 
     });
-
 }
 
 
@@ -1582,11 +2375,14 @@ function createReport(date) {
   const totals =
     result.totals;
 
+
   let text =
     `FUELTRACK AI\n` +
     `RAPORT DNIA: ${date}\n\n`;
 
+
   const meals = {};
+
 
   rows.forEach(row => {
 
@@ -1602,81 +2398,92 @@ function createReport(date) {
 
   });
 
+
   Object.entries(meals)
-    .forEach(([meal, products]) => {
-
-      text +=
-        `${meal.toUpperCase()}\n`;
-
-      products.forEach(product => {
+    .forEach(
+      ([meal, products]) => {
 
         text +=
-          `• ${
-            product[
-              "Produkty i potrawy"
-            ] || "Produkt"
-          }`;
+          `${meal.toUpperCase()}\n`;
 
-        if (
-          product["ilość (g)"]
-        ) {
+
+        products.forEach(product => {
+
+          text +=
+            `• ${
+              product[
+                "Produkty i potrawy"
+              ] || "Produkt"
+            }`;
+
+
+          if (
+            product["ilość (g)"]
+          ) {
+
+            text +=
+              ` — ${
+                product["ilość (g)"]
+              } g`;
+
+          }
+
 
           text +=
             ` — ${
-              product["ilość (g)"]
+              fmt(
+                num(
+                  product[
+                    "kalorie (kcal)"
+                  ]
+                )
+              )
+            } kcal`;
+
+
+          text +=
+            ` | B ${
+              fmt(
+                num(
+                  product[
+                    "Białka (g)"
+                  ]
+                )
+              )
             } g`;
 
-        }
 
-        text +=
-          ` — ${
-            fmt(
-              num(
-                product[
-                  "kalorie (kcal)"
-                ]
+          text +=
+            ` | W ${
+              fmt(
+                num(
+                  product[
+                    "Węglowodany (g)"
+                  ]
+                )
               )
-            )
-          } kcal`;
+            } g`;
 
-        text +=
-          ` | B ${
-            fmt(
-              num(
-                product[
-                  "Białka (g)"
-                ]
+
+          text +=
+            ` | T ${
+              fmt(
+                num(
+                  product[
+                    "Tłuszcze (g)"
+                  ]
+                )
               )
-            )
-          } g`;
+            } g\n`;
 
-        text +=
-          ` | W ${
-            fmt(
-              num(
-                product[
-                  "Węglowodany (g)"
-                ]
-              )
-            )
-          } g`;
+        });
 
-        text +=
-          ` | T ${
-            fmt(
-              num(
-                product[
-                  "Tłuszcze (g)"
-                ]
-              )
-            )
-          } g\n`;
 
-      });
+        text += "\n";
 
-      text += "\n";
+      }
+    );
 
-    });
 
   text +=
     `PODSUMOWANIE\n` +
@@ -1685,14 +2492,17 @@ function createReport(date) {
     `Węglowodany: ${fmt(totals.carbs)} g\n` +
     `Tłuszcz: ${fmt(totals.fat)} g\n\n`;
 
+
   text +=
     `TRENINGI\n`;
+
 
   const dayWorkouts =
     workouts.filter(
       workout =>
         workout.date === date
     );
+
 
   if (!dayWorkouts.length) {
 
@@ -1701,47 +2511,83 @@ function createReport(date) {
 
   } else {
 
-    dayWorkouts.forEach(workout => {
+    dayWorkouts.forEach(
+      workout => {
 
-      text +=
-        `• ${
-          workout.type ||
-          "Trening"
-        }`;
-
-      if (workout.distance) {
         text +=
-          ` | ${fmt(workout.distance)} km`;
+          `• ${
+            workout.type ||
+            "Trening"
+          }`;
+
+
+        if (workout.distance) {
+
+          text +=
+            ` | ${fmt(workout.distance)} km`;
+
+        }
+
+
+        if (workout.time) {
+
+          text +=
+            ` | ${workout.time}`;
+
+        }
+
+
+        if (workout.pace) {
+
+          text +=
+            ` | ${workout.pace}`;
+
+        }
+
+
+        if (workout.hr) {
+
+          text +=
+            ` | HR ${fmt(workout.hr)}`;
+
+        }
+
+
+        if (workout.maxHr) {
+
+          text +=
+            ` | Max HR ${fmt(workout.maxHr)}`;
+
+        }
+
+
+        if (workout.calories) {
+
+          text +=
+            ` | ${fmt(workout.calories)} kcal`;
+
+        }
+
+
+        if (workout.cadence) {
+
+          text +=
+            ` | kad. ${fmt(workout.cadence)}`;
+
+        }
+
+
+        text += "\n";
+
       }
-
-      if (workout.time) {
-        text +=
-          ` | ${workout.time}`;
-      }
-
-      if (workout.pace) {
-        text +=
-          ` | ${workout.pace}`;
-      }
-
-      if (workout.hr) {
-        text +=
-          ` | HR ${fmt(workout.hr)}`;
-      }
-
-      if (workout.calories) {
-        text +=
-          ` | ${fmt(workout.calories)} kcal`;
-      }
-
-      text += "\n";
-
-    });
+    );
 
   }
 
+
   text +=
     `\nMIKROELEMENTY\n`;
+
 
   MICRO_COLUMNS.forEach(
     ([column, label, unit]) => {
@@ -1749,9 +2595,11 @@ function createReport(date) {
       const total =
         rows.reduce(
           (sum, row) =>
-            sum + num(row[column]),
+            sum +
+            num(row[column]),
           0
         );
+
 
       if (total) {
 
@@ -1762,6 +2610,7 @@ function createReport(date) {
 
     }
   );
+
 
   return text;
 }
@@ -1783,10 +2632,12 @@ async function copyReport() {
     return;
   }
 
+
   const text =
     createReport(
       selectedDate
     );
+
 
   try {
 
@@ -1816,6 +2667,7 @@ async function copyReport() {
 
   }
 
+
   status(
     "Raport skopiowany."
   );
@@ -1834,13 +2686,18 @@ function setupImport() {
   const input =
     $("fileInput");
 
+
   if (!button || !input) {
     return;
   }
 
+
   button.onclick = () => {
+
     input.click();
+
   };
+
 
   input.onchange =
     async event => {
@@ -1848,7 +2705,9 @@ function setupImport() {
       const file =
         event.target.files[0];
 
+
       if (!file) return;
+
 
       try {
 
@@ -1857,6 +2716,7 @@ function setupImport() {
             await file.text()
           );
 
+
         if (!imported.length) {
 
           throw new Error(
@@ -1864,6 +2724,7 @@ function setupImport() {
           );
 
         }
+
 
         if (
           !(
@@ -1878,25 +2739,30 @@ function setupImport() {
 
         }
 
+
         const importedDates =
           [
             ...new Set(
               imported
-                .map(row =>
-                  row["Data"]
+                .map(
+                  row =>
+                    row["Data"]
                 )
                 .filter(Boolean)
             )
           ];
 
+
         const existingDates =
           new Set(
             foodRows
-              .map(row =>
-                row["Data"]
+              .map(
+                row =>
+                  row["Data"]
               )
               .filter(Boolean)
           );
+
 
         const conflicts =
           importedDates.filter(
@@ -1904,24 +2770,39 @@ function setupImport() {
               existingDates.has(date)
           );
 
+
         if (conflicts.length) {
 
           const replace =
             confirm(
-              `Import zawiera ${importedDates.length} dni.\n\n` +
-              `Dni już zapisane: ${conflicts.length}\n` +
+
+              `Import zawiera ${
+                importedDates.length
+              } dni.\n\n` +
+
+              `Dni już zapisane: ${
+                conflicts.length
+              }\n` +
+
               `Nowe dni: ${
                 importedDates.length -
                 conflicts.length
               }\n\n` +
+
               `OK — zastąp istniejące dni.\n` +
+
               `Anuluj — zachowaj istniejące dni.`
+
             );
+
 
           if (replace) {
 
             const conflictSet =
-              new Set(conflicts);
+              new Set(
+                conflicts
+              );
+
 
             foodRows =
               foodRows.filter(
@@ -1930,6 +2811,7 @@ function setupImport() {
                     row["Data"]
                   )
               );
+
 
             foodRows.push(
               ...imported
@@ -1956,17 +2838,24 @@ function setupImport() {
 
         }
 
+
         saveFood();
+
 
         selectedDate =
           importedDates[0] ||
           selectedDate;
 
+
         renderAll();
 
+
         status(
-          `Zaimportowano ${imported.length} rekordów Fitatu.`
+          `Zaimportowano ${
+            imported.length
+          } rekordów Fitatu.`
         );
+
 
       } catch (error) {
 
@@ -1978,10 +2867,10 @@ function setupImport() {
 
       }
 
+
       input.value = "";
 
     };
-
 }
 
 
@@ -1993,6 +2882,7 @@ function setupEvents() {
 
   const select =
     $("dateSelect");
+
 
   if (select) {
 
@@ -2008,14 +2898,17 @@ function setupEvents() {
 
   }
 
+
   const copy =
     $("copyBtn");
 
+
   if (copy) {
+
     copy.onclick =
       copyReport;
-  }
 
+  }
 }
 
 
@@ -2026,6 +2919,8 @@ function setupEvents() {
 function renderAll() {
 
   renderDateSelector();
+
+  renderBalance();
 
   renderMacro();
 
@@ -2050,40 +2945,31 @@ document.addEventListener(
 
     loadAll();
 
-    /*
-       Sekcja treningów jest tworzona
-       automatycznie.
-    */
+
+    createBalanceSection();
+
+    createNutritionSection();
 
     createWorkoutSection();
+
+    createHistorySection();
+
 
     setupImport();
 
     setupEvents();
 
+
     renderAll();
 
-    /*
-       Informacja diagnostyczna.
-    */
-
-    if (foodRows.length) {
-
-      console.log(
-        "FuelTrack AI: odzyskano rekordów Fitatu:",
-        foodRows.length
-      );
-
-    } else {
-
-      console.log(
-        "FuelTrack AI: brak danych Fitatu."
-      );
-
-    }
 
     console.log(
-      "FuelTrack AI: treningów:",
+      "FuelTrack AI v0.5 — Fitatu:",
+      foodRows.length
+    );
+
+    console.log(
+      "FuelTrack AI v0.5 — treningi:",
       workouts.length
     );
 
