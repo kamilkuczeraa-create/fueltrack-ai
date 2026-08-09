@@ -1,384 +1,911 @@
-/* FUELTRACK AI v0.5 — cały plik app.js */
-const FK="fueltrack_food_v04",WK="fueltrack_workouts_v04",GK="fueltrack_goals_v04";
-const GOALS={kcal:2200,protein:180,carbs:200,fat:70};
-const OLD=["fueltrack_fitatu_v04","fueltrack_fitatu_v03","fueltrack_fitatu_v02","fueltrack_fitatu","fitatuData","fitatu_data","fueltrack_data","fueltrack_rows"];
-const MIC="Błonnik (g)|Błonnik|g;Cukry (g)|Cukry|g;Kwas omega 3 (g)|Omega-3|g;Kwas omega 6 (g)|Omega-6|g;Kofeina (mg)|Kofeina|mg;Kwas foliowy (ug)|Kwas foliowy|µg;Witamina A (ug)|Witamina A|µg;Witamina B1 (mg)|Witamina B1|mg;Witamina B2 (mg)|Witamina B2|mg;Witamina B6 (mg)|Witamina B6|mg;Witamina B12 (ug)|Witamina B12|µg;Witamina C (mg)|Witamina C|mg;Witamina D (ug)|Witamina D|µg;Witamina E (mg)|Witamina E|mg;Witamina PP (mg)|Witamina PP|mg;Witamina K (ug)|Witamina K|µg;Cynk (mg)|Cynk|mg;Fosfor (mg)|Fosfor|mg;Jod (ug)|Jod|µg;Magnez (mg)|Magnez|mg;Potas (mg)|Potas|mg;Selen (ug)|Selen|µg;Sód (mg)|Sód|mg;Wapń (mg)|Wapń|mg;Żelazo (mg)|Żelazo|mg;Sól (g)|Sól|g;Cholesterol (mg)|Cholesterol|mg;Nasycone (g)|Kwasy nasycone|g".split(";").map(x=>x.split("|"));
-let food=[],workouts=[],date="",goals={...GOALS};
+/* =========================================================
+   FUELTRACK AI v0.6
+   ---------------------------------------------------------
+   FITATU + TRENINGI + BILANS + BACKUP
+========================================================= */
 
-const $=id=>document.getElementById(id);
-const N=x=>{
-  let n=parseFloat(String(x??"").replace(",",".").replace(/[^\d.-]/g,""));
-  return Number.isFinite(n)?n:0
+const FOOD_KEY = "fueltrack_food_v06";
+const WORKOUT_KEY = "fueltrack_workouts_v06";
+const GOALS_KEY = "fueltrack_goals_v06";
+
+const OLD_KEYS = [
+  "fueltrack_food_v05",
+  "fueltrack_food_v04",
+  "fueltrack_fitatu_v03",
+  "fueltrack_fitatu_v02",
+  "fueltrack_fitatu",
+  "fitatuData",
+  "fitatu_data",
+  "fueltrack_data",
+  "fueltrack_rows"
+];
+
+const DEFAULT_GOALS = {
+  kcal: 2200,
+  protein: 180,
+  carbs: 200,
+  fat: 70
 };
-const F=x=>Number(x||0).toLocaleString("pl-PL",{maximumFractionDigits:2});
-const E=x=>String(x??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
-const P=x=>{try{return JSON.parse(x)}catch{return null}};
 
-function msg(t,err=false){
-  let b=$("status")||document.createElement("div");
-  b.id="fueltrackMsg";
-  b.textContent=t;
-  b.style.cssText="position:fixed;left:16px;right:16px;bottom:18px;z-index:99999;padding:14px;border-radius:14px;background:"+(err?"#b42318":"#16794b")+";color:#fff;font-weight:700;text-align:center";
-  document.body.appendChild(b);
-  clearTimeout(b._t);
-  b._t=setTimeout(()=>b.remove(),3500)
+const MICRO_COLUMNS = [
+  ["Błonnik (g)", "Błonnik", "g"],
+  ["Cukry (g)", "Cukry", "g"],
+  ["Kwas omega 3 (g)", "Omega-3", "g"],
+  ["Kwas omega 6 (g)", "Omega-6", "g"],
+  ["Kofeina (mg)", "Kofeina", "mg"],
+  ["Kwas foliowy (ug)", "Kwas foliowy", "µg"],
+  ["Witamina A (ug)", "Witamina A", "µg"],
+  ["Witamina B1 (mg)", "Witamina B1", "mg"],
+  ["Witamina B2 (mg)", "Witamina B2", "mg"],
+  ["Witamina B6 (mg)", "Witamina B6", "mg"],
+  ["Witamina B12 (ug)", "Witamina B12", "µg"],
+  ["Witamina C (mg)", "Witamina C", "mg"],
+  ["Witamina D (ug)", "Witamina D", "µg"],
+  ["Witamina E (mg)", "Witamina E", "mg"],
+  ["Witamina PP (mg)", "Witamina PP", "mg"],
+  ["Witamina K (ug)", "Witamina K", "µg"],
+  ["Cynk (mg)", "Cynk", "mg"],
+  ["Fosfor (mg)", "Fosfor", "mg"],
+  ["Jod (ug)", "Jod", "µg"],
+  ["Magnez (mg)", "Magnez", "mg"],
+  ["Potas (mg)", "Potas", "mg"],
+  ["Selen (ug)", "Selen", "µg"],
+  ["Sód (mg)", "Sód", "mg"],
+  ["Wapń (mg)", "Wapń", "mg"],
+  ["Żelazo (mg)", "Żelazo", "mg"],
+  ["Sól (g)", "Sól", "g"],
+  ["Cholesterol (mg)", "Cholesterol", "mg"],
+  ["Nasycone (g)", "Kwasy nasycone", "g"]
+];
+
+let foodRows = [];
+let workouts = [];
+let selectedDate = "";
+
+
+/* =========================================================
+   POMOCNICZE
+========================================================= */
+
+function $(id) {
+  return document.getElementById(id);
 }
 
-function fit(a){
-  return Array.isArray(a)&&a.length&&a[0]&&typeof a[0]==="object"&&("Data"in a[0]||"data"in a[0])
-}
-
-function norm(a){
-  return Array.isArray(a)?a.filter(x=>x&&typeof x==="object").map(x=>({...x,Data:x.Data||x.data||""})):[]
-}
-
-function recover(){
-  let c=[];
-  for(let i=0;i<localStorage.length;i++){
-    let k=localStorage.key(i),p=P(localStorage.getItem(k));
-    if(fit(p))c.push(norm(p));
-    if(p&&Array.isArray(p.rows)&&fit(p.rows))c.push(norm(p.rows))
+function num(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
   }
-  for(let k of OLD){
-    let p=P(localStorage.getItem(k));
-    if(fit(p))return norm(p);
-    if(p&&Array.isArray(p.rows)&&fit(p.rows))return norm(p.rows)
+
+  const n = parseFloat(
+    String(value)
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "")
+  );
+
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fmt(value) {
+  return Number(value || 0).toLocaleString("pl-PL", {
+    maximumFractionDigits: 2
+  });
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function status(text, error = false) {
+  let box = $("status");
+
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "status";
+
+    box.style.cssText = `
+      position:fixed;
+      left:20px;
+      right:20px;
+      bottom:20px;
+      z-index:99999;
+      padding:15px 18px;
+      border-radius:15px;
+      background:#222;
+      color:white;
+      font-weight:600;
+      text-align:center;
+      box-shadow:0 8px 30px rgba(0,0,0,.2);
+    `;
+
+    document.body.appendChild(box);
   }
-  return c.sort((a,b)=>b.length-a.length)[0]||[]
+
+  box.style.background =
+    error ? "#b42318" : "#16794b";
+
+  box.textContent = text;
+  box.style.display = "block";
+
+  clearTimeout(box._timer);
+
+  box._timer = setTimeout(() => {
+    box.style.display = "none";
+  }, 4000);
 }
 
-function save(){
-  localStorage.setItem(FK,JSON.stringify(food));
-  localStorage.setItem(WK,JSON.stringify(workouts))
+function safeParse(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
-function load(){
-  let f=P(localStorage.getItem(FK));
-  food=fit(f)?norm(f):recover();
-  if(food.length)localStorage.setItem(FK,JSON.stringify(food));
 
-  let w=P(localStorage.getItem(WK));
-  workouts=Array.isArray(w)?w:[];
+/* =========================================================
+   STORAGE
+========================================================= */
 
-  goals={...GOALS,...(P(localStorage.getItem(GK))||{})}
+function looksLikeFitatu(array) {
+  if (!Array.isArray(array) || !array.length) {
+    return false;
+  }
+
+  const sample = array[0];
+
+  return (
+    sample &&
+    typeof sample === "object" &&
+    (
+      "Data" in sample ||
+      "data" in sample
+    )
+  );
 }
 
-function csv(s){
-  s=s.replace(/^\uFEFF/,"");
-  let R=[],r=[],c="",q=0;
+function normaliseRows(rows) {
+  if (!Array.isArray(rows)) {
+    return [];
+  }
 
-  for(let i=0;i<s.length;i++){
-    let x=s[i],n=s[i+1];
+  return rows
+    .filter(row =>
+      row &&
+      typeof row === "object"
+    )
+    .map(row => {
 
-    if(x==='"'){
-      if(q&&n==='"'){c+='"';i++}
-      else q=!q
+      const copy = { ...row };
+
+      if (!copy["Data"] && copy.data) {
+        copy["Data"] = copy.data;
+      }
+
+      return copy;
+    });
+}
+
+function recoverOldFoodData() {
+
+  const candidates = [];
+
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
+
+    const key =
+      localStorage.key(i);
+
+    if (!key) continue;
+
+    const raw =
+      localStorage.getItem(key);
+
+    if (!raw) continue;
+
+    const parsed =
+      safeParse(raw);
+
+    if (looksLikeFitatu(parsed)) {
+
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(parsed)
+      });
+
     }
-    else if(x===","&&!q){
-      r.push(c);
-      c=""
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      Array.isArray(parsed.rows) &&
+      looksLikeFitatu(parsed.rows)
+    ) {
+
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(parsed.rows)
+      });
+
     }
-    else if((x==="\n"||x==="\r")&&!q){
-      if(x==="\r"&&n==="\n")i++;
-      r.push(c);
-      c="";
-      if(r.some(v=>v.trim()))R.push(r);
-      r=[]
-    }
-    else c+=x
   }
 
-  if(c!==""||r.length){
-    r.push(c);
-    if(r.some(v=>v.trim()))R.push(r)
-  }
+  for (const key of OLD_KEYS) {
 
-  if(!R.length)return[];
+    const raw =
+      localStorage.getItem(key);
 
-  let h=R[0].map(x=>x.trim());
+    if (!raw) continue;
 
-  return R.slice(1)
-    .map(v=>Object.fromEntries(h.map((x,i)=>[x,(v[i]??"").trim()])))
-    .filter(o=>Object.values(o).some(Boolean))
-}
+    const parsed =
+      safeParse(raw);
 
-function importCSV(file){
-  file.text().then(t=>{
-    let a=csv(t);
+    if (looksLikeFitatu(parsed)) {
+      return normaliseRows(parsed);
+    }
 
-    if(!a.length)throw Error("CSV jest pusty.");
-    if(!(a[0]&&"Data"in a[0]))throw Error("Nie znaleziono kolumny Data.");
+    if (
+      parsed &&
+      Array.isArray(parsed.rows) &&
+      looksLikeFitatu(parsed.rows)
+    ) {
 
-    let ds=[...new Set(a.map(x=>x.Data).filter(Boolean))];
-    let ex=new Set(food.map(x=>x.Data).filter(Boolean));
-    let conf=ds.filter(d=>ex.has(d));
-
-    if(conf.length){
-      let rep=confirm(
-        `Import zawiera ${ds.length} dni.\n`+
-        `Dni już zapisane: ${conf.length}\n\n`+
-        `OK — zastąp te dni.\n`+
-        `Anuluj — zachowaj stare i dodaj tylko nowe.`
+      return normaliseRows(
+        parsed.rows
       );
 
-      if(rep){
-        let s=new Set(conf);
-        food=food.filter(x=>!s.has(x.Data));
-        food.push(...a)
-      }
-      else{
-        food.push(...a.filter(x=>!ex.has(x.Data)))
-      }
     }
-    else{
-      food.push(...a)
-    }
+  }
 
-    localStorage.setItem(FK,JSON.stringify(food));
-    date=ds[0]||date;
-    render();
-    msg(`Zaimportowano ${a.length} rekordów Fitatu.`)
-  }).catch(e=>msg(e.message||"Błąd importu.",true))
+  if (candidates.length) {
+
+    candidates.sort(
+      (a, b) =>
+        b.rows.length -
+        a.rows.length
+    );
+
+    return candidates[0].rows;
+  }
+
+  return [];
 }
 
-function dates(){
-  return[
-    ...new Set(
-      [...food.map(x=>x.Data),...workouts.map(x=>x.date)]
+function saveFood() {
+  try {
+    localStorage.setItem(
+      FOOD_KEY,
+      JSON.stringify(foodRows)
+    );
+  } catch (error) {
+    status(
+      "Nie udało się zapisać bazy Fitatu. Pamięć telefonu może być pełna.",
+      true
+    );
+  }
+}
+
+function saveWorkouts() {
+  try {
+    localStorage.setItem(
+      WORKOUT_KEY,
+      JSON.stringify(workouts)
+    );
+  } catch {
+    status(
+      "Nie udało się zapisać treningu.",
+      true
+    );
+  }
+}
+
+function loadGoals() {
+
+  const saved =
+    safeParse(
+      localStorage.getItem(
+        GOALS_KEY
+      )
+    );
+
+  return {
+    ...DEFAULT_GOALS,
+    ...(saved || {})
+  };
+}
+
+function loadAll() {
+
+  let savedFood =
+    safeParse(
+      localStorage.getItem(
+        FOOD_KEY
+      )
+    );
+
+  if (looksLikeFitatu(savedFood)) {
+
+    foodRows =
+      normaliseRows(savedFood);
+
+  } else {
+
+    foodRows =
+      recoverOldFoodData();
+
+    if (foodRows.length) {
+      saveFood();
+    }
+  }
+
+  const savedWorkouts =
+    safeParse(
+      localStorage.getItem(
+        WORKOUT_KEY
+      )
+    );
+
+  workouts =
+    Array.isArray(savedWorkouts)
+      ? savedWorkouts
+      : [];
+
+}
+
+
+/* =========================================================
+   CSV
+========================================================= */
+
+function parseCSV(text) {
+
+  text =
+    text.replace(/^\uFEFF/, "");
+
+  const rows = [];
+
+  let row = [];
+  let cell = "";
+  let quoted = false;
+
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+
+      if (
+        quoted &&
+        next === '"'
+      ) {
+
+        cell += '"';
+        i++;
+
+      } else {
+
+        quoted = !quoted;
+
+      }
+
+    } else if (
+      char === "," &&
+      !quoted
+    ) {
+
+      row.push(cell);
+      cell = "";
+
+    } else if (
+      (
+        char === "\n" ||
+        char === "\r"
+      ) &&
+      !quoted
+    ) {
+
+      if (
+        char === "\r" &&
+        next === "\n"
+      ) {
+        i++;
+      }
+
+      row.push(cell);
+      cell = "";
+
+      if (
+        row.some(
+          value =>
+            value.trim() !== ""
+        )
+      ) {
+        rows.push(row);
+      }
+
+      row = [];
+
+    } else {
+
+      cell += char;
+
+    }
+  }
+
+  if (
+    cell !== "" ||
+    row.length
+  ) {
+
+    row.push(cell);
+
+    if (
+      row.some(
+        value =>
+          value.trim() !== ""
+      )
+    ) {
+      rows.push(row);
+    }
+  }
+
+  if (!rows.length) {
+    return [];
+  }
+
+  const headers =
+    rows[0].map(
+      h => h.trim()
+    );
+
+  return rows
+    .slice(1)
+    .map(values => {
+
+      const object = {};
+
+      headers.forEach(
+        (header, index) => {
+
+          object[header] =
+            (
+              values[index] ??
+              ""
+            ).trim();
+
+        }
+      );
+
+      return object;
+
+    })
+    .filter(object =>
+      Object.values(object)
+        .some(value =>
+          value !== ""
+        )
+    );
+}
+
+
+/* =========================================================
+   DATY
+========================================================= */
+
+function getDates() {
+
+  const dates = [
+    ...foodRows
+      .map(row =>
+        row["Data"]
+      )
+      .filter(Boolean),
+
+    ...workouts
+      .map(workout =>
+        workout.date
+      )
       .filter(Boolean)
-    )
-  ].sort().reverse()
-}
-
-function totals(d){
-  let rows=food.filter(x=>x.Data===d);
-  let t={kcal:0,protein:0,carbs:0,fat:0};
-
-  rows.forEach(x=>{
-    t.kcal+=N(x["kalorie (kcal)"]);
-    t.protein+=N(x["Białka (g)"]);
-    t.carbs+=N(x["Węglowodany (g)"]);
-    t.fat+=N(x["Tłuszcze (g)"])
-  });
-
-  return{rows,t}
-}
-
-function dateUI(){
-  let s=$("dateSelect"),ds=dates();
-  if(!s)return;
-
-  if(!ds.length){
-    date="";
-    s.innerHTML='<option>Brak danych</option>'
-  }
-  else{
-    if(!ds.includes(date))date=ds[0];
-
-    s.innerHTML=ds
-      .map(d=>`<option value="${E(d)}">${E(d)}</option>`)
-      .join("");
-
-    s.value=date
-  }
-
-  if($("selectedDateLabel"))
-    $("selectedDateLabel").textContent=date||"Brak danych";
-
-  if($("dayCount"))
-    $("dayCount").textContent=`${ds.length} ${ds.length===1?"dzień":"dni"}`
-}
-
-function meals(){
-  let b=$("meals"),rows=food.filter(x=>x.Data===date);
-  if(!b)return;
-
-  if(!rows.length){
-    b.innerHTML="<p>Brak posiłków dla tego dnia.</p>";
-    return
-  }
-
-  let g={};
-
-  rows.forEach(x=>{
-    let m=x.Posiłek||"Inne";
-    if(!g[m])g[m]=[];
-    g[m].push(x)
-  });
-
-  b.innerHTML=Object.entries(g).map(([m,a])=>`
-    <div class="meal">
-      <h3>${E(m)}</h3>
-
-      ${a.map(x=>`
-        <div class="product" style="padding:10px 0;border-bottom:1px solid #eee">
-          <strong>${E(x["Produkty i potrawy"]||"Produkt")}</strong>
-
-          <div>
-            ${F(N(x["kalorie (kcal)"]))} kcal
-            · B ${F(N(x["Białka (g)"]))} g
-            · W ${F(N(x["Węglowodany (g)"]))} g
-            · T ${F(N(x["Tłuszcze (g)"]))} g
-          </div>
-        </div>
-      `).join("")}
-    </div>
-  `).join("")
-}
-
-function balance(){
-  if(!$("dailyBalance")){
-    let h=document.querySelector(".hero");
-
-    if(h){
-      let s=document.createElement("section");
-      s.id="dailyBalance";
-      s.className="card";
-
-      s.innerHTML=`
-        <div class="section-head">
-          <h2>Bilans dnia</h2>
-        </div>
-
-        <div id="balanceContent"></div>
-      `;
-
-      h.after(s)
-    }
-  }
-
-  let b=$("balanceContent");
-  if(!b)return;
-
-  let t=totals(date).t;
-
-  let row=(id,n,v,g,u,i)=>`
-    <div style="margin:14px 0">
-
-      <div style="display:flex;justify-content:space-between;gap:8px">
-        <strong>${i} ${n}</strong>
-        <span>
-          <b>${F(v)}</b> / ${F(g)} ${u}
-        </span>
-      </div>
-
-      <div style="height:13px;background:#e8ecf2;border-radius:99px;overflow:hidden;margin-top:7px">
-        <div
-          id="${id}"
-          style="
-            height:100%;
-            width:${Math.min(100,v/g*100||0)}%;
-            background:linear-gradient(90deg,#2563eb,#22c55e);
-            border-radius:99px;
-            transition:.3s
-          "
-        ></div>
-      </div>
-
-    </div>
-  `;
-
-  b.innerHTML=
-    row("kcalBar","Kalorie",t.kcal,goals.kcal,"kcal","🔥")+
-    row("proteinBar","Białko",t.protein,goals.protein,"g","🥩")+
-    row("carbsBar","Węglowodany",t.carbs,goals.carbs,"g","🍚")+
-    row("fatBar","Tłuszcz",t.fat,goals.fat,"g","🥑")
-}
-
-function macro(){
-  let t=totals(date).t;
-
-  [
-    ["kcal",t.kcal],
-    ["protein",t.protein],
-    ["carbs",t.carbs],
-    ["fat",t.fat]
-  ].forEach(([i,v])=>{
-    if($(i))$(i).textContent=F(v)
-  })
-}
-
-function micro(){
-  let b=$("micros"),r=totals(date).rows;
-  if(!b)return;
-
-  b.innerHTML=MIC.map(([c,n,u])=>{
-    let v=r.reduce((s,x)=>s+N(x[c]),0);
-
-    return v
-      ?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee">
-          <span>${E(n)}</span>
-          <strong>${F(v)} ${u}</strong>
-        </div>`
-      :""
-  }).join("")||"<p>Brak wartości mikroelementów.</p>"
-}
-
-function collapsible(cid,did,title){
-  let c=$(cid);
-
-  if(!c||$(did))return;
-
-  let card=c.closest("section.card")||c.parentElement?.closest("section");
-
-  if(!card||!card.parentElement)return;
-
-  let h=card.querySelector(".section-head");
-  let head=h?.querySelector("h1,h2,h3,h4,h5,h6");
-
-  let extra=h
-    ?[...h.children]
-      .filter(x=>x!==head)
-      .map(x=>x.outerHTML)
-      .join("")
-    :"";
-
-  let d=document.createElement("details");
-  d.id=did;
-  d.className="card";
-
-  let s=document.createElement("summary");
-
-  s.style="cursor:pointer;list-style:none;font-size:22px;font-weight:800;padding:0;user-select:none";
-
-  s.innerHTML=
-    `${E(head?.textContent?.trim()||title)}
-     <span style="float:right;opacity:.5">▼</span>
-     ${extra}`;
-
-  d.appendChild(s);
-  card.before(d);
-  d.appendChild(c);
-  card.remove()
-}
-
-function workoutUI(){
-  if($("workoutSection"))return;
-
-  let s=document.createElement("section");
-
-  s.id="workoutSection";
-  s.className="card";
-
-  let fields=[
-    ["wType","text","Rodzaj, np. Easy Run / Interwały"],
-    ["wDistance","number","Dystans km"],
-    ["wTime","text","Czas, np. 52:34"],
-    ["wPace","text","Tempo, np. 5:18/km"],
-    ["wHr","number","Średnie tętno"],
-    ["wMaxHr","number","Maksymalne tętno"],
-    ["wCalories","number","Kalorie treningu"],
-    ["wCadence","number","Kadencja"],
-    ["wElevation","number","Przewyższenie m"]
   ];
 
-  s.innerHTML=`
-    <div class="section-head">
-      <h2>🏃 Trening</h2>
-      <button id="addWorkoutBtn" class="secondary">
-        ＋ Dodaj trening
+  return [
+    ...new Set(dates)
+  ].sort().reverse();
+}
+
+
+/* =========================================================
+   JEDZENIE / BILANS
+========================================================= */
+
+function totalsForDate(date) {
+
+  const rows =
+    foodRows.filter(
+      row =>
+        row["Data"] === date
+    );
+
+  const totals = {
+    kcal: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0
+  };
+
+  rows.forEach(row => {
+
+    totals.kcal +=
+      num(
+        row["kalorie (kcal)"]
+      );
+
+    totals.protein +=
+      num(
+        row["Białka (g)"]
+      );
+
+    totals.carbs +=
+      num(
+        row["Węglowodany (g)"]
+      );
+
+    totals.fat +=
+      num(
+        row["Tłuszcze (g)"]
+      );
+
+  });
+
+  return {
+    rows,
+    totals
+  };
+}
+
+function workoutCaloriesForDate(date) {
+
+  return workouts
+    .filter(
+      workout =>
+        workout.date === date
+    )
+    .reduce(
+      (sum, workout) =>
+        sum +
+        num(workout.calories),
+      0
+    );
+}
+
+
+/* =========================================================
+   WYBÓR DNIA
+========================================================= */
+
+function renderDateSelector() {
+
+  const select =
+    $("dateSelect");
+
+  if (!select) return;
+
+  const dates =
+    getDates();
+
+  if (!dates.length) {
+
+    selectedDate = "";
+
+    select.innerHTML =
+      `<option value="">
+        Brak danych
+      </option>`;
+
+    if ($("selectedDateLabel")) {
+      $("selectedDateLabel")
+        .textContent =
+        "Brak danych";
+    }
+
+    if ($("dayCount")) {
+      $("dayCount")
+        .textContent =
+        "0 dni";
+    }
+
+    return;
+  }
+
+  if (
+    !selectedDate ||
+    !dates.includes(
+      selectedDate
+    )
+  ) {
+
+    selectedDate =
+      dates[0];
+
+  }
+
+  select.innerHTML =
+    dates.map(date =>
+      `<option value="${esc(date)}">
+        ${esc(date)}
+      </option>`
+    ).join("");
+
+  select.value =
+    selectedDate;
+
+  if ($("selectedDateLabel")) {
+    $("selectedDateLabel")
+      .textContent =
+      selectedDate;
+  }
+
+  if ($("dayCount")) {
+
+    $("dayCount")
+      .textContent =
+      `${dates.length} ${
+        dates.length === 1
+          ? "dzień"
+          : "dni"
+      }`;
+
+  }
+}
+
+
+/* =========================================================
+   POSIŁKI
+========================================================= */
+
+function renderMeals() {
+
+  const box =
+    $("meals");
+
+  if (!box) return;
+
+  if (!selectedDate) {
+
+    box.innerHTML =
+      `<p>Brak danych.</p>`;
+
+    return;
+  }
+
+  const rows =
+    foodRows.filter(
+      row =>
+        row["Data"] ===
+        selectedDate
+    );
+
+  if (!rows.length) {
+
+    box.innerHTML =
+      `<p>
+        Brak posiłków dla tego dnia.
+      </p>`;
+
+    return;
+  }
+
+  const groups = {};
+
+  rows.forEach(row => {
+
+    const meal =
+      row["Posiłek"] ||
+      "Inne";
+
+    if (!groups[meal]) {
+      groups[meal] = [];
+    }
+
+    groups[meal].push(row);
+
+  });
+
+  box.innerHTML =
+    Object.entries(groups)
+      .map(
+        ([meal, products]) =>
+        `
+
+        <div class="meal">
+
+          <h3>
+            ${esc(meal)}
+          </h3>
+
+          ${products.map(
+            product => {
+
+              const name =
+                product[
+                  "Produkty i potrawy"
+                ] ||
+                "Produkt";
+
+              const kcal =
+                num(
+                  product[
+                    "kalorie (kcal)"
+                  ]
+                );
+
+              const protein =
+                num(
+                  product[
+                    "Białka (g)"
+                  ]
+                );
+
+              const carbs =
+                num(
+                  product[
+                    "Węglowodany (g)"
+                  ]
+                );
+
+              const fat =
+                num(
+                  product[
+                    "Tłuszcze (g)"
+                  ]
+                );
+
+              return `
+                <div
+                  style="
+                    padding:10px 0;
+                    border-bottom:
+                      1px solid #eee;
+                  "
+                >
+
+                  <strong>
+                    ${esc(name)}
+                  </strong>
+
+                  <div>
+                    ${fmt(kcal)} kcal
+                    · B ${fmt(protein)} g
+                    · W ${fmt(carbs)} g
+                    · T ${fmt(fat)} g
+                  </div>
+
+                </div>
+              `;
+
+            }
+          ).join("")}
+
+        </div>
+
+      `
+      ).join("");
+
+}
+
+
+/* =========================================================
+   MAKRO
+========================================================= */
+
+function renderMacro() {
+
+  const result =
+    totalsForDate(
+      selectedDate
+    );
+
+  const totals =
+    result.totals;
+
+  if ($("kcal")) {
+    $("kcal").textContent =
+      fmt(totals.kcal);
+  }
+
+  if ($("protein")) {
+    $("protein").textContent =
+      fmt(totals.protein);
+  }
+
+  if ($("carbs")) {
+    $("carbs").textContent =
+      fmt(totals.carbs);
+  }
+
+  if ($("fat")) {
+    $("fat").textContent =
+      fmt(totals.fat);
+  }
+
+}
+
+
+/* =========================================================
+   TRENINGI
+========================================================= */
+
+function createWorkoutSection() {
+
+  if ($("workoutSection")) {
+    return;
+  }
+
+  const section =
+    document.createElement(
+      "section"
+    );
+
+  section.id =
+    "workoutSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:
+      0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+
+    <div
+      style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+        margin-bottom:18px;
+      "
+    >
+
+      <h2 style="margin:0">
+        🏃 Trening
+      </h2>
+
+      <button
+        id="addWorkoutBtn"
+        style="
+          border:0;
+          border-radius:14px;
+          padding:12px 16px;
+          background:#2463eb;
+          color:white;
+          font-weight:700;
+          font-size:15px;
+        "
+      >
+        + Dodaj
       </button>
+
     </div>
+
+    <div id="workoutSummary"></div>
 
     <div id="workouts"></div>
 
@@ -386,61 +913,188 @@ function workoutUI(){
       id="workoutForm"
       style="
         display:none;
-        margin-top:16px;
-        padding:16px;
-        border-radius:18px;
-        background:#f5f6fa
+        margin-top:20px;
+        padding:18px;
+        border-radius:20px;
+        background:#f5f6fa;
       "
     >
 
-      <h3>Nowy trening</h3>
+      <h3 id="workoutFormTitle">
+        Nowy trening
+      </h3>
 
-      ${fields.map(f=>`
-        <input
-          id="${f[0]}"
-          type="${f[1]}"
-          placeholder="${f[2]}"
-          style="
-            width:100%;
-            box-sizing:border-box;
-            padding:12px;
-            margin:5px 0;
-            border-radius:12px;
-            border:1px solid #ddd;
-            font:inherit
-          "
-        >
-      `).join("")}
-
-      <textarea
-        id="wNote"
-        rows="3"
-        placeholder="Odczucia / notatka"
+      <input
+        id="wType"
+        placeholder="Rodzaj, np. Easy Run / Interwały"
         style="
           width:100%;
           box-sizing:border-box;
-          padding:12px;
+          padding:13px;
           margin:5px 0;
           border-radius:12px;
-          border:1px solid #ddd;
-          font:inherit
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wDistance"
+        type="number"
+        step="0.01"
+        placeholder="Dystans km"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wTime"
+        placeholder="Czas, np. 52:34"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wPace"
+        placeholder="Tempo, np. 5:18/km"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wHr"
+        type="number"
+        placeholder="Średnie tętno"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wMaxHr"
+        type="number"
+        placeholder="Maksymalne tętno"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wCalories"
+        type="number"
+        placeholder="Kalorie treningu"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wCadence"
+        type="number"
+        placeholder="Kadencja"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <input
+        id="wElevation"
+        type="number"
+        placeholder="Przewyższenie m"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
+      >
+
+      <textarea
+        id="wNote"
+        placeholder="Odczucia / notatka"
+        rows="3"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
         "
       ></textarea>
 
-      <div style="display:flex;gap:8px">
+      <div
+        style="
+          display:flex;
+          gap:10px;
+          margin-top:10px;
+        "
+      >
 
         <button
           id="saveWorkoutBtn"
-          class="primary"
-          style="flex:1"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#16794b;
+            color:white;
+            font-weight:700;
+          "
         >
-          Zapisz trening
+          Zapisz
         </button>
 
         <button
           id="cancelWorkoutBtn"
-          class="secondary"
-          style="flex:1"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#ddd;
+            font-weight:700;
+          "
         >
           Anuluj
         </button>
@@ -450,389 +1104,1972 @@ function workoutUI(){
     </div>
   `;
 
-  let m=$("meals")?.closest("section");
+  const history =
+    $("history");
 
-  if(m)m.after(s);
+  if (
+    history &&
+    history.parentElement
+  ) {
 
-  $("addWorkoutBtn").onclick=()=>{
-    if(!date)return msg("Najpierw wybierz dzień.",true);
+    history.parentElement
+      .before(section);
 
-    $("workoutForm").style.display="block";
+  } else {
 
-    $("workoutForm").scrollIntoView({
-      behavior:"smooth",
-      block:"center"
-    })
-  };
+    document.body.appendChild(
+      section
+    );
 
-  $("cancelWorkoutBtn").onclick=()=>
-    $("workoutForm").style.display="none";
-
-  $("saveWorkoutBtn").onclick=saveWorkout
-}
-
-function saveWorkout(){
-  let w={
-    id:String(Date.now()),
-    date,
-    type:$("wType").value.trim(),
-    distance:N($("wDistance").value),
-    time:$("wTime").value.trim(),
-    pace:$("wPace").value.trim(),
-    hr:N($("wHr").value),
-    maxHr:N($("wMaxHr").value),
-    calories:N($("wCalories").value),
-    cadence:N($("wCadence").value),
-    elevation:N($("wElevation").value),
-    note:$("wNote").value.trim()
-  };
-
-  if(!w.type&&!w.distance&&!w.time)
-    return msg("Wpisz rodzaj, dystans albo czas.",true);
-
-  workouts.push(w);
-  save();
-
-  $("workoutForm").style.display="none";
-
-  render();
-  msg("Trening zapisany.")
-}
-
-function renderWorkouts(){
-  let b=$("workouts");
-  if(!b)return;
-
-  let a=workouts.filter(w=>w.date===date);
-
-  if(!a.length){
-    b.innerHTML='<p style="color:#777">Brak treningów dla tego dnia.</p>';
-    return
   }
 
-  b.innerHTML=a.map(w=>`
+  setupWorkoutEvents();
+}
+
+let editingWorkoutId = null;
+
+function setupWorkoutEvents() {
+
+  const add =
+    $("addWorkoutBtn");
+
+  const save =
+    $("saveWorkoutBtn");
+
+  const cancel =
+    $("cancelWorkoutBtn");
+
+  if (add) {
+
+    add.onclick = () => {
+
+      if (!selectedDate) {
+
+        status(
+          "Najpierw wybierz dzień.",
+          true
+        );
+
+        return;
+      }
+
+      editingWorkoutId = null;
+
+      $("workoutFormTitle")
+        .textContent =
+        "Nowy trening";
+
+      clearWorkoutForm();
+
+      $("workoutForm")
+        .style.display =
+        "block";
+
+      $("workoutForm")
+        .scrollIntoView({
+          behavior:"smooth",
+          block:"center"
+        });
+
+    };
+  }
+
+  if (cancel) {
+
+    cancel.onclick = () => {
+
+      editingWorkoutId = null;
+
+      $("workoutForm")
+        .style.display =
+        "none";
+
+      clearWorkoutForm();
+
+    };
+  }
+
+  if (save) {
+    save.onclick =
+      saveWorkout;
+  }
+}
+
+function clearWorkoutForm() {
+
+  [
+    "wType",
+    "wDistance",
+    "wTime",
+    "wPace",
+    "wHr",
+    "wMaxHr",
+    "wCalories",
+    "wCadence",
+    "wElevation",
+    "wNote"
+  ].forEach(id => {
+
+    if ($(id)) {
+      $(id).value = "";
+    }
+
+  });
+}
+
+function saveWorkout() {
+
+  if (!selectedDate) {
+
+    status(
+      "Nie wybrano dnia.",
+      true
+    );
+
+    return;
+  }
+
+  const data = {
+
+    date:
+      selectedDate,
+
+    type:
+      $("wType").value.trim(),
+
+    distance:
+      num(
+        $("wDistance").value
+      ),
+
+    time:
+      $("wTime").value.trim(),
+
+    pace:
+      $("wPace").value.trim(),
+
+    hr:
+      num(
+        $("wHr").value
+      ),
+
+    maxHr:
+      num(
+        $("wMaxHr").value
+      ),
+
+    calories:
+      num(
+        $("wCalories").value
+      ),
+
+    cadence:
+      num(
+        $("wCadence").value
+      ),
+
+    elevation:
+      num(
+        $("wElevation").value
+      ),
+
+    note:
+      $("wNote").value.trim()
+
+  };
+
+  if (
+    !data.type &&
+    !data.distance &&
+    !data.time
+  ) {
+
+    status(
+      "Wpisz przynajmniej rodzaj, dystans albo czas.",
+      true
+    );
+
+    return;
+  }
+
+  if (editingWorkoutId) {
+
+    const index =
+      workouts.findIndex(
+        workout =>
+          String(workout.id) ===
+          String(editingWorkoutId)
+      );
+
+    if (index !== -1) {
+
+      workouts[index] = {
+        ...workouts[index],
+        ...data
+      };
+
+    }
+
+    status(
+      "Trening został zaktualizowany."
+    );
+
+  } else {
+
+    workouts.push({
+      id:
+        Date.now().toString(),
+      ...data
+    });
+
+    status(
+      "Trening zapisany."
+    );
+  }
+
+  saveWorkouts();
+
+  editingWorkoutId = null;
+
+  clearWorkoutForm();
+
+  $("workoutForm")
+    .style.display =
+    "none";
+
+  renderAll();
+}
+
+function editWorkout(id) {
+
+  const workout =
+    workouts.find(
+      item =>
+        String(item.id) ===
+        String(id)
+    );
+
+  if (!workout) return;
+
+  editingWorkoutId =
+    workout.id;
+
+  $("workoutFormTitle")
+    .textContent =
+    "Edytuj trening";
+
+  $("wType").value =
+    workout.type || "";
+
+  $("wDistance").value =
+    workout.distance || "";
+
+  $("wTime").value =
+    workout.time || "";
+
+  $("wPace").value =
+    workout.pace || "";
+
+  $("wHr").value =
+    workout.hr || "";
+
+  $("wMaxHr").value =
+    workout.maxHr || "";
+
+  $("wCalories").value =
+    workout.calories || "";
+
+  $("wCadence").value =
+    workout.cadence || "";
+
+  $("wElevation").value =
+    workout.elevation || "";
+
+  $("wNote").value =
+    workout.note || "";
+
+  $("workoutForm")
+    .style.display =
+    "block";
+
+  $("workoutForm")
+    .scrollIntoView({
+      behavior:"smooth",
+      block:"center"
+    });
+}
+
+function renderWorkouts() {
+
+  const box =
+    $("workouts");
+
+  if (!box) return;
+
+  const list =
+    workouts.filter(
+      workout =>
+        workout.date ===
+        selectedDate
+    );
+
+  const workoutCalories =
+    list.reduce(
+      (sum, workout) =>
+        sum +
+        num(workout.calories),
+      0
+    );
+
+  const distance =
+    list.reduce(
+      (sum, workout) =>
+        sum +
+        num(workout.distance),
+      0
+    );
+
+  const summary =
+    $("workoutSummary");
+
+  if (summary) {
+
+    summary.innerHTML =
+      list.length
+        ? `
+          <div
+            style="
+              display:grid;
+              grid-template-columns:
+                repeat(2,minmax(0,1fr));
+              gap:10px;
+              margin-bottom:18px;
+            "
+          >
+
+            <div
+              style="
+                background:#f5f6fa;
+                padding:14px;
+                border-radius:16px;
+              "
+            >
+              <small>Treningi</small>
+              <br>
+              <strong>
+                ${list.length}
+              </strong>
+            </div>
+
+            <div
+              style="
+                background:#f5f6fa;
+                padding:14px;
+                border-radius:16px;
+              "
+            >
+                <small>Dystans</small>
+                <br>
+                <strong>
+                  ${fmt(distance)} km
+                </strong>
+            </div>
+
+            <div
+              style="
+                background:#f5f6fa;
+                padding:14px;
+                border-radius:16px;
+              "
+            >
+                <small>Spalone</small>
+                <br>
+                <strong>
+                  ${fmt(workoutCalories)} kcal
+                </strong>
+            </div>
+
+          </div>
+        `
+        : "";
+  }
+
+  if (!list.length) {
+
+    box.innerHTML = `
+      <div
+        style="
+          color:#777;
+          padding:10px 0;
+        "
+      >
+        Brak treningów dla tego dnia.
+      </div>
+    `;
+
+    return;
+  }
+
+  box.innerHTML =
+    list.map(workout => {
+
+      return `
+        <div
+          style="
+            padding:17px;
+            margin-bottom:12px;
+            border-radius:18px;
+            background:#f5f6fa;
+          "
+        >
+
+          <div
+            style="
+              font-size:18px;
+              font-weight:800;
+              margin-bottom:12px;
+            "
+          >
+            🏃
+            ${esc(
+              workout.type ||
+              "Trening"
+            )}
+          </div>
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:
+                1fr 1fr;
+              gap:10px;
+            "
+          >
+
+            ${
+              workout.distance
+                ? `
+                  <div>
+                    <small>Dystans</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.distance
+                      )} km
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.time
+                ? `
+                  <div>
+                    <small>Czas</small>
+                    <br>
+                    <b>
+                      ${esc(
+                        workout.time
+                      )}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.pace
+                ? `
+                  <div>
+                    <small>Tempo</small>
+                    <br>
+                    <b>
+                      ${esc(
+                        workout.pace
+                      )}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.hr
+                ? `
+                  <div>
+                    <small>Śr. HR</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.hr
+                      )}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.maxHr
+                ? `
+                  <div>
+                    <small>Max HR</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.maxHr
+                      )}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.calories
+                ? `
+                  <div>
+                    <small>Kalorie</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.calories
+                      )} kcal
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.cadence
+                ? `
+                  <div>
+                    <small>Kadencja</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.cadence
+                      )}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.elevation
+                ? `
+                  <div>
+                    <small>Przewyższenie</small>
+                    <br>
+                    <b>
+                      ${fmt(
+                        workout.elevation
+                      )} m
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+          ${
+            workout.note
+              ? `
+                <div
+                  style="
+                    margin-top:12px;
+                    padding-top:12px;
+                    border-top:
+                      1px solid #ddd;
+                  "
+                >
+                  📝
+                  ${esc(
+                    workout.note
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+          <div
+            style="
+              display:flex;
+              gap:8px;
+              margin-top:14px;
+            "
+          >
+
+            <button
+              data-edit-workout="${esc(
+                workout.id
+              )}"
+              style="
+                flex:1;
+                border:0;
+                border-radius:10px;
+                padding:10px;
+                background:#e8eefc;
+                color:#2463eb;
+                font-weight:700;
+              "
+            >
+              Edytuj
+            </button>
+
+            <button
+              data-delete-workout="${esc(
+                workout.id
+              )}"
+              style="
+                flex:1;
+                border:0;
+                border-radius:10px;
+                padding:10px;
+                background:#fee4e2;
+                color:#b42318;
+                font-weight:700;
+              "
+            >
+              Usuń
+            </button>
+
+          </div>
+
+        </div>
+      `;
+
+    }).join("");
+
+  box
+    .querySelectorAll(
+      "[data-edit-workout]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        editWorkout(
+          button.dataset
+            .editWorkout
+        );
+
+      };
+
+    });
+
+  box
+    .querySelectorAll(
+      "[data-delete-workout]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        if (
+          !confirm(
+            "Usunąć ten trening?"
+          )
+        ) {
+          return;
+        }
+
+        workouts =
+          workouts.filter(
+            workout =>
+              String(
+                workout.id
+              ) !==
+              String(
+                button.dataset
+                  .deleteWorkout
+              )
+          );
+
+        saveWorkouts();
+
+        renderAll();
+
+        status(
+          "Trening usunięty."
+        );
+
+      };
+
+    });
+}
+
+
+/* =========================================================
+   BILANS DNIA
+========================================================= */
+
+function createDailyBalance() {
+
+  if ($("dailyBalance")) {
+    return;
+  }
+
+  const section =
+    document.createElement(
+      "section"
+    );
+
+  section.id =
+    "dailyBalance";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:
+      0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+    <h2 style="margin-top:0">
+      ⚖️ Bilans dnia
+    </h2>
+
+    <div id="dailyBalanceContent"></div>
+  `;
+
+  const meals =
+    $("meals");
+
+  if (
+    meals &&
+    meals.parentElement
+  ) {
+
+    meals.parentElement
+      .after(section);
+
+  } else {
+
+    document.body.appendChild(
+      section
+    );
+
+  }
+}
+
+function renderDailyBalance() {
+
+  const box =
+    $("dailyBalanceContent");
+
+  if (!box) return;
+
+  if (!selectedDate) {
+
+    box.innerHTML =
+      `<p>Brak wybranego dnia.</p>`;
+
+    return;
+  }
+
+  const totals =
+    totalsForDate(
+      selectedDate
+    ).totals;
+
+  const workout =
+    workoutCaloriesForDate(
+      selectedDate
+    );
+
+  const net =
+    totals.kcal -
+    workout;
+
+  const goals =
+    loadGoals();
+
+  const kcalPercent =
+    Math.min(
+      100,
+      goals.kcal > 0
+        ? (
+            totals.kcal /
+            goals.kcal
+          ) * 100
+        : 0
+    );
+
+  const proteinPercent =
+    Math.min(
+      100,
+      goals.protein > 0
+        ? (
+            totals.protein /
+            goals.protein
+          ) * 100
+        : 0
+    );
+
+  const carbsPercent =
+    Math.min(
+      100,
+      goals.carbs > 0
+        ? (
+            totals.carbs /
+            goals.carbs
+          ) * 100
+        : 0
+    );
+
+  const fatPercent =
+    Math.min(
+      100,
+      goals.fat > 0
+        ? (
+            totals.fat /
+            goals.fat
+          ) * 100
+        : 0
+    );
+
+  function progress(
+    label,
+    value,
+    goal,
+    percent,
+    unit
+  ) {
+
+    return `
+      <div style="margin-bottom:18px">
+
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            margin-bottom:7px;
+            font-weight:700;
+          "
+        >
+
+          <span>
+            ${label}
+          </span>
+
+          <span>
+            ${fmt(value)}
+            / ${fmt(goal)}
+            ${unit}
+          </span>
+
+        </div>
+
+        <div
+          style="
+            width:100%;
+            height:14px;
+            background:#e9edf2;
+            border-radius:999px;
+            overflow:hidden;
+          "
+        >
+
+          <div
+            style="
+              width:${percent}%;
+              height:100%;
+              background:linear-gradient(
+                90deg,
+                #2463eb,
+                #55a6ff
+              );
+              border-radius:999px;
+              transition:width .3s ease;
+            "
+          ></div>
+
+        </div>
+
+      </div>
+    `;
+  }
+
+  box.innerHTML = `
+
+    ${progress(
+      "🔥 Kalorie",
+      totals.kcal,
+      goals.kcal,
+      kcalPercent,
+      "kcal"
+    )}
+
+    ${progress(
+      "🥩 Białko",
+      totals.protein,
+      goals.protein,
+      proteinPercent,
+      "g"
+    )}
+
+    ${progress(
+      "🍚 Węglowodany",
+      totals.carbs,
+      goals.carbs,
+      carbsPercent,
+      "g"
+    )}
+
+    ${progress(
+      "🥑 Tłuszcz",
+      totals.fat,
+      goals.fat,
+      fatPercent,
+      "g"
+    )}
+
     <div
       style="
-        padding:16px;
-        margin:10px 0;
-        border-radius:18px;
-        background:#f5f6fa
+        display:grid;
+        grid-template-columns:
+          repeat(2,minmax(0,1fr));
+        gap:10px;
+        margin-top:22px;
       "
     >
 
-      <b style="font-size:18px">
-        🏃 ${E(w.type||"Trening")}
-      </b>
+      <div
+        style="
+          background:#f5f6fa;
+          padding:15px;
+          border-radius:16px;
+        "
+      >
+        <small>Zjedzone</small>
+        <br>
+        <strong>
+          ${fmt(totals.kcal)} kcal
+        </strong>
+      </div>
 
       <div
         style="
-          display:grid;
-          grid-template-columns:1fr 1fr;
-          gap:9px;
-          margin-top:10px
+          background:#f5f6fa;
+          padding:15px;
+          border-radius:16px;
         "
       >
-
-        ${
-          w.distance
-          ?`<div>
-              <small>Dystans</small><br>
-              <b>${F(w.distance)} km</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.time
-          ?`<div>
-              <small>Czas</small><br>
-              <b>${E(w.time)}</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.pace
-          ?`<div>
-              <small>Tempo</small><br>
-              <b>${E(w.pace)}</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.hr
-          ?`<div>
-              <small>Śr. HR</small><br>
-              <b>${F(w.hr)}</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.maxHr
-          ?`<div>
-              <small>Max HR</small><br>
-              <b>${F(w.maxHr)}</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.calories
-          ?`<div>
-              <small>Kalorie</small><br>
-              <b>${F(w.calories)} kcal</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.cadence
-          ?`<div>
-              <small>Kadencja</small><br>
-              <b>${F(w.cadence)}</b>
-            </div>`
-          :""
-        }
-
-        ${
-          w.elevation
-          ?`<div>
-              <small>Przewyższenie</small><br>
-              <b>${F(w.elevation)} m</b>
-            </div>`
-          :""
-        }
-
+        <small>Trening</small>
+        <br>
+        <strong>
+          - ${fmt(workout)} kcal
+        </strong>
       </div>
 
-      ${
-        w.note
-        ?`<div
-            style="
-              margin-top:10px;
-              border-top:1px solid #ddd;
-              padding-top:10px
-            "
-          >
-            📝 ${E(w.note)}
-          </div>`
-        :""
-      }
-
-      <button
-        data-del="${E(w.id)}"
+      <div
         style="
-          margin-top:12px;
-          border:0;
-          border-radius:10px;
-          padding:8px 12px;
-          background:#fee4e2;
-          color:#b42318;
-          font-weight:700
+          background:#f5f6fa;
+          padding:15px;
+          border-radius:16px;
         "
       >
-        Usuń trening
-      </button>
+        <small>Bilans po treningu</small>
+        <br>
+        <strong>
+          ${fmt(net)} kcal
+        </strong>
+      </div>
 
     </div>
-  `).join("");
 
-  b.querySelectorAll("[data-del]").forEach(x=>{
-    x.onclick=()=>{
-      if(confirm("Usunąć ten trening?")){
-        workouts=workouts.filter(w=>String(w.id)!==String(x.dataset.del));
-        save();
-        render()
-      }
-    }
-  })
+  `;
 }
 
-function history(){
-  let b=$("history"),ds=dates();
 
-  if(!b)return;
+/* =========================================================
+   HISTORIA
+========================================================= */
 
-  b.innerHTML=ds.length
-    ?ds.map(d=>`
-      <div
-        style="
-          display:flex;
-          justify-content:space-between;
-          padding:11px 0;
-          border-bottom:1px solid #eee
-        "
-      >
-        <button
-          data-d="${E(d)}"
+function renderHistory() {
+
+  const box =
+    $("history");
+
+  if (!box) return;
+
+  const dates =
+    getDates();
+
+  if (!dates.length) {
+
+    box.innerHTML =
+      `<p>Brak zapisanych dni.</p>`;
+
+    return;
+  }
+
+  box.innerHTML =
+    dates.map(date => {
+
+      const result =
+        totalsForDate(date);
+
+      const workoutCount =
+        workouts.filter(
+          workout =>
+            workout.date === date
+        ).length;
+
+      return `
+        <div
           style="
-            border:0;
-            background:none;
-            font-weight:700;
-            font-size:16px
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+            align-items:center;
+            padding:12px 0;
+            border-bottom:
+              1px solid #eee;
           "
         >
-          ${E(d)}
-        </button>
 
-        <span>
-          ${F(totals(d).t.kcal)} kcal
-          ${
-            workouts.filter(w=>w.date===d).length
-            ?" · 🏃 "+workouts.filter(w=>w.date===d).length
-            :""
-          }
-        </span>
-      </div>
-    `).join("")
-    :"<p>Brak zapisanych dni.</p>";
+          <button
+            data-history-date="${esc(
+              date
+            )}"
+            style="
+              border:0;
+              background:none;
+              font-weight:700;
+              font-size:16px;
+              padding:0;
+            "
+          >
+            ${esc(date)}
+          </button>
 
-  b.querySelectorAll("[data-d]").forEach(x=>{
-    x.onclick=()=>{
-      date=x.dataset.d;
-      render();
-      scrollTo({top:0,behavior:"smooth"})
-    }
-  })
-}
+          <span>
+            ${fmt(
+              result.totals.kcal
+            )}
+            kcal
 
-function report(d){
-  let {rows,t}=totals(d);
+            ${
+              workoutCount
+                ? `
+                  · 🏃
+                  ${workoutCount}
+                `
+                : ""
+            }
+          </span>
 
-  let txt=
-    `FUELTRACK AI\n`+
-    `RAPORT DNIA: ${d}\n\n`;
+        </div>
+      `;
 
-  let g={};
+    }).join("");
 
-  rows.forEach(x=>{
-    let m=x.Posiłek||"Inne";
-    if(!g[m])g[m]=[];
-    g[m].push(x)
-  });
+  box
+    .querySelectorAll(
+      "[data-history-date]"
+    )
+    .forEach(button => {
 
-  Object.entries(g).forEach(([m,a])=>{
-    txt+=m.toUpperCase()+"\n";
+      button.onclick = () => {
 
-    a.forEach(x=>{
-      txt+=
-        `• ${x["Produkty i potrawy"]||"Produkt"}`+
-        `${x["ilość (g)"]?" — "+x["ilość (g)"]+" g":""}`+
-        ` — ${F(N(x["kalorie (kcal)"]))} kcal`+
-        ` | B ${F(N(x["Białka (g)"]))} g`+
-        ` | W ${F(N(x["Węglowodany (g)"]))} g`+
-        ` | T ${F(N(x["Tłuszcze (g)"]))} g\n`
+        selectedDate =
+          button.dataset
+            .historyDate;
+
+        renderAll();
+
+        window.scrollTo({
+          top:0,
+          behavior:"smooth"
+        });
+
+      };
+
     });
-
-    txt+="\n"
-  });
-
-  txt+=
-    `PODSUMOWANIE\n`+
-    `Kalorie: ${F(t.kcal)} kcal\n`+
-    `Białko: ${F(t.protein)} g\n`+
-    `Węglowodany: ${F(t.carbs)} g\n`+
-    `Tłuszcz: ${F(t.fat)} g\n\n`+
-    `MIKROELEMENTY\n`;
-
-  MIC.forEach(([c,n,u])=>{
-    let v=rows.reduce((s,x)=>s+N(x[c]),0);
-    if(v)txt+=`${n}: ${F(v)} ${u}\n`
-  });
-
-  txt+="\nTRENINGI\n";
-
-  let ws=workouts.filter(w=>w.date===d);
-
-  if(!ws.length){
-    txt+="Brak zapisanych treningów.\n"
-  }
-  else{
-    ws.forEach(w=>{
-      txt+=`• ${w.type||"Trening"}`;
-
-      if(w.distance)txt+=` | ${F(w.distance)} km`;
-      if(w.time)txt+=` | ${w.time}`;
-      if(w.pace)txt+=` | ${w.pace}`;
-      if(w.hr)txt+=` | HR ${F(w.hr)}`;
-      if(w.maxHr)txt+=` | Max HR ${F(w.maxHr)}`;
-      if(w.calories)txt+=` | ${F(w.calories)} kcal`;
-      if(w.cadence)txt+=` | kad. ${F(w.cadence)}`;
-      if(w.elevation)txt+=` | +${F(w.elevation)} m`;
-      if(w.note)txt+=` | ${w.note}`;
-
-      txt+="\n"
-    })
-  }
-
-  return txt
 }
 
-async function copy(){
-  if(!date)return msg("Brak wybranego dnia.",true);
 
-  let t=report(date);
+/* =========================================================
+   RAPORT TEKSTOWY
+========================================================= */
 
-  try{
-    await navigator.clipboard.writeText(t)
-  }
-  catch{
-    let x=document.createElement("textarea");
-    x.value=t;
-    document.body.append(x);
-    x.select();
-    document.execCommand("copy");
-    x.remove()
-  }
+function createReport(date) {
 
-  msg("Raport skopiowany.")
-}
+  const result =
+    totalsForDate(date);
 
-function render(){
-  dateUI();
-  macro();
-  balance();
-  meals();
-  micro();
-  renderWorkouts();
-  history()
-}
+  const rows =
+    result.rows;
 
-document.addEventListener("DOMContentLoaded",()=>{
-  load();
+  const totals =
+    result.totals;
 
-  let inp=$("fileInput");
-  let imp=$("importBtn");
+  const workoutRows =
+    workouts.filter(
+      workout =>
+        workout.date === date
+    );
 
-  if(imp&&inp){
-    imp.onclick=()=>inp.click();
+  const workoutCalories =
+    workoutRows.reduce(
+      (sum, workout) =>
+        sum +
+        num(workout.calories),
+      0
+    );
 
-    inp.onchange=e=>{
-      let f=e.target.files[0];
-      if(f)importCSV(f);
-      inp.value=""
+  const net =
+    totals.kcal -
+    workoutCalories;
+
+  let text =
+    `FUELTRACK AI\n` +
+    `RAPORT DNIA: ${date}\n\n`;
+
+  const meals = {};
+
+  rows.forEach(row => {
+
+    const meal =
+      row["Posiłek"] ||
+      "Inne";
+
+    if (!meals[meal]) {
+      meals[meal] = [];
     }
+
+    meals[meal].push(row);
+
+  });
+
+  Object.entries(meals)
+    .forEach(
+      ([meal, products]) => {
+
+        text +=
+          `${meal.toUpperCase()}\n`;
+
+        products.forEach(product => {
+
+          text +=
+            `• ${
+              product[
+                "Produkty i potrawy"
+              ] ||
+              "Produkt"
+            }`;
+
+          if (
+            product["ilość (g)"]
+          ) {
+
+            text +=
+              ` — ${
+                product["ilość (g)"]
+              } g`;
+
+          }
+
+          text +=
+            ` — ${
+              fmt(
+                num(
+                  product[
+                    "kalorie (kcal)"
+                  ]
+                )
+              )
+            } kcal`;
+
+          text +=
+            ` | B ${
+              fmt(
+                num(
+                  product[
+                    "Białka (g)"
+                  ]
+                )
+              )
+            } g`;
+
+          text +=
+            ` | W ${
+              fmt(
+                num(
+                  product[
+                    "Węglowodany (g)"
+                  ]
+                )
+              )
+            } g`;
+
+          text +=
+            ` | T ${
+              fmt(
+                num(
+                  product[
+                    "Tłuszcze (g)"
+                  ]
+                )
+              )
+            } g\n`;
+
+        });
+
+        text += "\n";
+
+      }
+    );
+
+  text +=
+    `PODSUMOWANIE\n` +
+    `Kalorie: ${fmt(
+      totals.kcal
+    )} kcal\n` +
+    `Białko: ${fmt(
+      totals.protein
+    )} g\n` +
+    `Węglowodany: ${fmt(
+      totals.carbs
+    )} g\n` +
+    `Tłuszcz: ${fmt(
+      totals.fat
+    )} g\n`;
+
+  text +=
+    `Kalorie z treningów: -${fmt(
+      workoutCalories
+    )} kcal\n`;
+
+  text +=
+    `Bilans po treningu: ${fmt(
+      net
+    )} kcal\n\n`;
+
+  text +=
+    `TRENINGI\n`;
+
+  if (!workoutRows.length) {
+
+    text +=
+      `Brak zapisanych treningów.\n`;
+
+  } else {
+
+    workoutRows.forEach(
+      workout => {
+
+        text +=
+          `• ${
+            workout.type ||
+            "Trening"
+          }`;
+
+        if (workout.distance) {
+          text +=
+            ` | ${fmt(
+              workout.distance
+            )} km`;
+        }
+
+        if (workout.time) {
+          text +=
+            ` | ${workout.time}`;
+        }
+
+        if (workout.pace) {
+          text +=
+            ` | ${workout.pace}`;
+        }
+
+        if (workout.hr) {
+          text +=
+            ` | HR ${fmt(
+              workout.hr
+            )}`;
+        }
+
+        if (workout.maxHr) {
+          text +=
+            ` | Max HR ${fmt(
+              workout.maxHr
+            )}`;
+        }
+
+        if (workout.cadence) {
+          text +=
+            ` | Kadencja ${fmt(
+              workout.cadence
+            )}`;
+        }
+
+        if (workout.calories) {
+          text +=
+            ` | ${fmt(
+              workout.calories
+            )} kcal`;
+        }
+
+        if (workout.note) {
+          text +=
+            ` | ${workout.note}`;
+        }
+
+        text += "\n";
+
+      }
+    );
   }
 
-  let ds=$("dateSelect");
+  text +=
+    `\nMIKROELEMENTY\n`;
 
-  if(ds)
-    ds.onchange=e=>{
-      date=e.target.value;
-      render()
+  MICRO_COLUMNS.forEach(
+    ([column, label, unit]) => {
+
+      const total =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            num(row[column]),
+          0
+        );
+
+      if (total) {
+
+        text +=
+          `${label}: ${fmt(
+            total
+          )} ${unit}\n`;
+
+      }
+
+    }
+  );
+
+  return text;
+}
+
+
+/* =========================================================
+   KOPIOWANIE
+========================================================= */
+
+async function copyReport() {
+
+  if (!selectedDate) {
+
+    status(
+      "Brak wybranego dnia.",
+      true
+    );
+
+    return;
+  }
+
+  const text =
+    createReport(
+      selectedDate
+    );
+
+  try {
+
+    await navigator.clipboard
+      .writeText(text);
+
+  } catch {
+
+    const textarea =
+      document.createElement(
+        "textarea"
+      );
+
+    textarea.value =
+      text;
+
+    document.body.appendChild(
+      textarea
+    );
+
+    textarea.select();
+
+    document.execCommand(
+      "copy"
+    );
+
+    textarea.remove();
+
+  }
+
+  status(
+    "Raport skopiowany."
+  );
+}
+
+
+/* =========================================================
+   IMPORT FITATU
+========================================================= */
+
+function setupImport() {
+
+  const button =
+    $("importBtn");
+
+  const input =
+    $("fileInput");
+
+  if (!button || !input) {
+    return;
+  }
+
+  button.onclick = () => {
+    input.click();
+  };
+
+  input.onchange =
+    async event => {
+
+      const file =
+        event.target.files[0];
+
+      if (!file) return;
+
+      try {
+
+        const imported =
+          parseCSV(
+            await file.text()
+          );
+
+        if (!imported.length) {
+
+          throw new Error(
+            "CSV jest pusty."
+          );
+        }
+
+        if (
+          !(
+            "Data" in
+            imported[0]
+          )
+        ) {
+
+          throw new Error(
+            "Nie znaleziono kolumny Data."
+          );
+        }
+
+        const importedDates =
+          [
+            ...new Set(
+              imported
+                .map(row =>
+                  row["Data"]
+                )
+                .filter(Boolean)
+            )
+          ];
+
+        const existingDates =
+          new Set(
+            foodRows
+              .map(row =>
+                row["Data"]
+              )
+              .filter(Boolean)
+          );
+
+        const conflicts =
+          importedDates.filter(
+            date =>
+              existingDates.has(date)
+          );
+
+        if (conflicts.length) {
+
+          const replace =
+            confirm(
+              `Import zawiera ${
+                importedDates.length
+              } dni.\n\n` +
+
+              `Dni już zapisane: ${
+                conflicts.length
+              }\n` +
+
+              `Nowe dni: ${
+                importedDates.length -
+                conflicts.length
+              }\n\n` +
+
+              `OK — zastąp istniejące dni.\n` +
+
+              `Anuluj — zachowaj istniejące dni.`
+            );
+
+          if (replace) {
+
+            const conflictSet =
+              new Set(conflicts);
+
+            foodRows =
+              foodRows.filter(
+                row =>
+                  !conflictSet.has(
+                    row["Data"]
+                  )
+              );
+
+            foodRows.push(
+              ...imported
+            );
+
+          } else {
+
+            foodRows.push(
+              ...imported.filter(
+                row =>
+                  !existingDates.has(
+                    row["Data"]
+                  )
+              )
+            );
+
+          }
+
+        } else {
+
+          foodRows.push(
+            ...imported
+          );
+
+        }
+
+        saveFood();
+
+        selectedDate =
+          importedDates[0] ||
+          selectedDate;
+
+        renderAll();
+
+        status(
+          `Zaimportowano ${
+            imported.length
+          } rekordów Fitatu.`
+        );
+
+      } catch (error) {
+
+        status(
+          error.message ||
+          "Błąd importu.",
+          true
+        );
+
+      }
+
+      input.value = "";
+
+    };
+}
+
+
+/* =========================================================
+   BACKUP
+========================================================= */
+
+function createBackupSection() {
+
+  if ($("backupSection")) {
+    return;
+  }
+
+  const section =
+    document.createElement(
+      "section"
+    );
+
+  section.id =
+    "backupSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:
+      0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+
+    <details>
+
+      <summary
+        style="
+          cursor:pointer;
+          font-size:18px;
+          font-weight:800;
+        "
+      >
+        💾 Kopia zapasowa
+      </summary>
+
+      <div
+        style="
+          margin-top:18px;
+        "
+      >
+
+        <p
+          style="
+            color:#666;
+            line-height:1.5;
+          "
+        >
+          Zapisz całą bazę FuelTrack AI
+          jako plik. Dzięki temu nawet
+          po problemie z przeglądarką
+          możesz ją później odtworzyć.
+        </p>
+
+        <div
+          style="
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+          "
+        >
+
+          <button
+            id="exportBackupBtn"
+            style="
+              border:0;
+              border-radius:14px;
+              padding:14px;
+              background:#2463eb;
+              color:white;
+              font-weight:700;
+            "
+          >
+            ⬇️ Zapisz kopię bazy
+          </button>
+
+          <button
+            id="importBackupBtn"
+            style="
+              border:0;
+              border-radius:14px;
+              padding:14px;
+              background:#eee;
+              font-weight:700;
+            "
+          >
+            ♻️ Odtwórz bazę z kopii
+          </button>
+
+          <input
+            id="backupFileInput"
+            type="file"
+            accept=".json,application/json"
+            style="display:none"
+          >
+
+        </div>
+
+      </div>
+
+    </details>
+
+  `;
+
+  document.body.appendChild(
+    section
+  );
+
+  $("exportBackupBtn").onclick =
+    exportBackup;
+
+  $("importBackupBtn").onclick =
+    () => {
+
+      $("backupFileInput").click();
+
     };
 
-  let cp=$("copyBtn");
+  $("backupFileInput").onchange =
+    importBackup;
+}
 
-  if(cp)
-    cp.onclick=copy;
+function exportBackup() {
 
-  workoutUI();
+  const backup = {
 
-  collapsible("micros","macroMicroDetails","Makro i mikro");
-  collapsible("history","historyDetails","Historia");
+    app:
+      "FuelTrack AI",
 
-  render()
-});
+    version:
+      "0.6",
+
+    createdAt:
+      new Date().toISOString(),
+
+    foodRows,
+
+    workouts,
+
+    goals:
+      loadGoals()
+
+  };
+
+  const blob =
+    new Blob(
+      [
+        JSON.stringify(
+          backup,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          "application/json"
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const link =
+    document.createElement(
+      "a"
+    );
+
+  link.href = url;
+
+  link.download =
+    `fueltrack-backup-${
+      new Date()
+        .toISOString()
+        .slice(0,10)
+    }.json`;
+
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+
+  link.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
+
+  status(
+    "Kopia bazy została przygotowana."
+  );
+}
+
+async function importBackup(event) {
+
+  const file =
+    event.target.files[0];
+
+  if (!file) return;
+
+  try {
+
+    const text =
+      await file.text();
+
+    const backup =
+      JSON.parse(text);
+
+    if (
+      backup.app !==
+      "FuelTrack AI"
+    ) {
+
+      throw new Error(
+        "To nie jest poprawna kopia FuelTrack AI."
+      );
+    }
+
+    if (
+      !Array.isArray(
+        backup.foodRows
+      ) ||
+      !Array.isArray(
+        backup.workouts
+      )
+    ) {
+
+      throw new Error(
+        "Kopia jest uszkodzona."
+      );
+    }
+
+    const confirmRestore =
+      confirm(
+        `Odtworzyć bazę?\n\n` +
+        `Jedzenie: ${
+          backup.foodRows.length
+        } rekordów\n` +
+        `Treningi: ${
+          backup.workouts.length
+        }\n\n` +
+        `Obecne dane zostaną zastąpione.`
+      );
+
+    if (!confirmRestore) {
+      return;
+    }
+
+    foodRows =
+      normaliseRows(
+        backup.foodRows
+      );
+
+    workouts =
+      backup.workouts;
+
+    saveFood();
+
+    saveWorkouts();
+
+    if (backup.goals) {
+
+      localStorage.setItem(
+        GOALS_KEY,
+        JSON.stringify(
+          backup.goals
+        )
+      );
+
+    }
+
+    selectedDate = "";
+
+    renderAll();
+
+    status(
+      "Baza została odtworzona."
+    );
+
+  } catch (error) {
+
+    status(
+      error.message ||
+      "Nie udało się odtworzyć kopii.",
+      true
+    );
+
+  }
+
+  event.target.value = "";
+}
+
+
+/* =========================================================
+   EVENTY
+========================================================= */
+
+function setupEvents() {
+
+  const select =
+    $("dateSelect");
+
+  if (select) {
+
+    select.onchange =
+      event => {
+
+        selectedDate =
+          event.target.value;
+
+        renderAll();
+
+      };
+
+  }
+
+  const copy =
+    $("copyBtn");
+
+  if (copy) {
+
+    copy.onclick =
+      copyReport;
+
+  }
+}
+
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function renderAll() {
+
+  renderDateSelector();
+
+  renderMacro();
+
+  renderMeals();
+
+  renderDailyBalance();
+
+  renderWorkouts();
+
+  renderHistory();
+
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    loadAll();
+
+    createWorkoutSection();
+
+    createDailyBalance();
+
+    createBackupSection();
+
+    setupImport();
+
+    setupEvents();
+
+    renderAll();
+
+    console.log(
+      "FuelTrack AI:",
+      "Fitatu:",
+      foodRows.length,
+      "Treningi:",
+      workouts.length
+    );
+
+  }
+);
