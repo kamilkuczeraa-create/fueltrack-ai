@@ -1,39 +1,18 @@
 /* =========================================================
-   FUELTRACK AI
-   STABILNA WERSJA — BAZA DANYCH
-   ---------------------------------------------------------
-   WAŻNE:
-   - nie kasuje istniejących danych
-   - odzyskuje dane ze wszystkich poprzednich kluczy
-   - zapisuje dane lokalnie
+   FUELTRACK AI v0.5
    - Fitatu CSV
-   - zastępowanie istniejących dni
-   - treningi ręczne
-   - raport dnia
+   - trwała baza
+   - migracja/odzyskiwanie starych danych
+   - treningi
+   - screeny Garmin — maks. 4
+   - raport tekstowy
 ========================================================= */
 
+const FOOD_KEY = "fueltrack_food_v04";
+const WORKOUT_KEY = "fueltrack_workouts_v04";
+const GOALS_KEY = "fueltrack_goals_v04";
 
-/* =========================================================
-   KLUCZE BAZY
-========================================================= */
-
-const FOOD_KEY = "fueltrack_food_STABLE";
-const WORKOUT_KEY = "fueltrack_workouts_STABLE";
-const GOALS_KEY = "fueltrack_goals_STABLE";
-
-
-/*
-   WSZYSTKIE KLUCZE UŻYWANE PRZEZ POPRZEDNIE WERSJE.
-
-   Nie usuwamy ich.
-   Dzięki temu nowa wersja może odzyskać stare dane.
-*/
-
-const OLD_FOOD_KEYS = [
-  "fueltrack_food_v04",
-  "fueltrack_food_v03",
-  "fueltrack_food_v02",
-  "fueltrack_fitatu_v04",
+const OLD_KEYS = [
   "fueltrack_fitatu_v03",
   "fueltrack_fitatu_v02",
   "fueltrack_fitatu",
@@ -43,25 +22,12 @@ const OLD_FOOD_KEYS = [
   "fueltrack_rows"
 ];
 
-const OLD_WORKOUT_KEYS = [
-  "fueltrack_workouts_v04",
-  "fueltrack_workouts_v03",
-  "fueltrack_workouts_v02",
-  "fueltrack_workouts"
-];
-
-
 const DEFAULT_GOALS = {
   kcal: 2200,
   protein: 180,
   carbs: 200,
   fat: 70
 };
-
-
-/* =========================================================
-   MIKRO
-========================================================= */
 
 const MICRO_COLUMNS = [
   ["Błonnik (g)", "Błonnik", "g"],
@@ -94,11 +60,6 @@ const MICRO_COLUMNS = [
   ["Nasycone (g)", "Kwasy nasycone", "g"]
 ];
 
-
-/* =========================================================
-   ZMIENNE
-========================================================= */
-
 let foodRows = [];
 let workouts = [];
 let selectedDate = "";
@@ -112,14 +73,8 @@ function $(id) {
   return document.getElementById(id);
 }
 
-
 function num(value) {
-
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return 0;
   }
 
@@ -132,20 +87,13 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-
 function fmt(value) {
-
-  return Number(value || 0).toLocaleString(
-    "pl-PL",
-    {
-      maximumFractionDigits: 2
-    }
-  );
+  return Number(value || 0).toLocaleString("pl-PL", {
+    maximumFractionDigits: 2
+  });
 }
 
-
 function esc(value) {
-
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -154,31 +102,11 @@ function esc(value) {
     .replace(/'/g, "&#039;");
 }
 
-
-function safeParse(value) {
-
-  try {
-    return JSON.parse(value);
-  }
-
-  catch {
-    return null;
-  }
-}
-
-
-/* =========================================================
-   KOMUNIKATY
-========================================================= */
-
 function status(text, error = false) {
-
   let box = $("status");
 
   if (!box) {
-
     box = document.createElement("div");
-
     box.id = "status";
 
     box.style.cssText = `
@@ -186,7 +114,7 @@ function status(text, error = false) {
       left:20px;
       right:20px;
       bottom:20px;
-      z-index:999999;
+      z-index:99999;
       padding:15px 18px;
       border-radius:15px;
       background:#222;
@@ -203,25 +131,46 @@ function status(text, error = false) {
     error ? "#b42318" : "#16794b";
 
   box.textContent = text;
-
   box.style.display = "block";
 
   clearTimeout(box._timer);
 
   box._timer = setTimeout(() => {
-
     box.style.display = "none";
-
   }, 4000);
 }
 
 
 /* =========================================================
-   ROZPOZNAWANIE DANYCH FITATU
+   STORAGE — ODCZYT
 ========================================================= */
 
-function normaliseRows(rows) {
+function safeParse(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
 
+function looksLikeFitatu(array) {
+  if (!Array.isArray(array) || !array.length) {
+    return false;
+  }
+
+  const sample = array[0];
+
+  if (!sample || typeof sample !== "object") {
+    return false;
+  }
+
+  return (
+    "Data" in sample ||
+    "data" in sample
+  );
+}
+
+function normaliseRows(rows) {
   if (!Array.isArray(rows)) {
     return [];
   }
@@ -236,70 +185,49 @@ function normaliseRows(rows) {
 
       const copy = { ...row };
 
-      if (
-        !copy["Data"] &&
-        copy.data
-      ) {
+      if (!copy["Data"] && copy.data) {
         copy["Data"] = copy.data;
       }
 
       return copy;
-
     });
 }
 
 
-function looksLikeFitatu(rows) {
-
-  if (
-    !Array.isArray(rows) ||
-    !rows.length
-  ) {
-    return false;
-  }
-
-  const sample = rows.find(
-    row =>
-      row &&
-      typeof row === "object"
-  );
-
-  if (!sample) {
-    return false;
-  }
-
-  return (
-    "Data" in sample ||
-    "data" in sample
-  );
-}
-
-
 /* =========================================================
-   BEZPIECZNE ODCZYTYWANIE DANYCH
+   ODZYSKIWANIE STARYCH DANYCH FITATU
 ========================================================= */
 
-function readFoodFromKey(key) {
+function recoverOldFoodData() {
 
-  try {
+  const candidates = [];
+
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
+
+    const key =
+      localStorage.key(i);
+
+    if (!key) continue;
 
     const raw =
       localStorage.getItem(key);
 
-    if (!raw) {
-      return [];
-    }
+    if (!raw) continue;
 
     const parsed =
       safeParse(raw);
 
-    if (
-      looksLikeFitatu(parsed)
-    ) {
+    if (looksLikeFitatu(parsed)) {
 
-      return normaliseRows(
-        parsed
-      );
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(parsed)
+      });
 
     }
 
@@ -310,22 +238,51 @@ function readFoodFromKey(key) {
       looksLikeFitatu(parsed.rows)
     ) {
 
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(parsed.rows)
+      });
+
+    }
+  }
+
+  for (const key of OLD_KEYS) {
+
+    const raw =
+      localStorage.getItem(key);
+
+    if (!raw) continue;
+
+    const parsed =
+      safeParse(raw);
+
+    if (looksLikeFitatu(parsed)) {
+      return normaliseRows(parsed);
+    }
+
+    if (
+      parsed &&
+      Array.isArray(parsed.rows) &&
+      looksLikeFitatu(parsed.rows)
+    ) {
+
       return normaliseRows(
         parsed.rows
       );
 
     }
-
   }
 
-  catch (error) {
+  if (candidates.length) {
 
-    console.error(
-      "Błąd odczytu:",
-      key,
-      error
+    candidates.sort(
+      (a, b) =>
+        b.rows.length -
+        a.rows.length
     );
 
+    return candidates[0].rows;
   }
 
   return [];
@@ -333,169 +290,10 @@ function readFoodFromKey(key) {
 
 
 /* =========================================================
-   ODZYSKIWANIE DANYCH
-========================================================= */
-
-function recoverFoodData() {
-
-  const candidates = [];
-
-
-  /*
-     1. Najpierw wszystkie znane klucze.
-  */
-
-  const keys = [
-    FOOD_KEY,
-    ...OLD_FOOD_KEYS
-  ];
-
-
-  /*
-     Usuwamy duplikaty.
-  */
-
-  const uniqueKeys =
-    [...new Set(keys)];
-
-
-  uniqueKeys.forEach(key => {
-
-    const rows =
-      readFoodFromKey(key);
-
-    if (rows.length) {
-
-      candidates.push({
-        key,
-        rows
-      });
-
-    }
-
-  });
-
-
-  /*
-     2. Jeżeli nie znaleźliśmy danych
-        po nazwach, przeszukujemy
-        całe localStorage.
-
-        To jest dodatkowe zabezpieczenie.
-  */
-
-  if (!candidates.length) {
-
-    for (
-      let i = 0;
-      i < localStorage.length;
-      i++
-    ) {
-
-      const key =
-        localStorage.key(i);
-
-      if (!key) {
-        continue;
-      }
-
-      /*
-         Nie próbujemy odczytywać
-         kluczy, które już sprawdziliśmy.
-      */
-
-      if (
-        uniqueKeys.includes(key)
-      ) {
-        continue;
-      }
-
-      const rows =
-        readFoodFromKey(key);
-
-      if (rows.length) {
-
-        candidates.push({
-          key,
-          rows
-        });
-
-      }
-
-    }
-
-  }
-
-
-  if (!candidates.length) {
-
-    console.log(
-      "FuelTrack: nie znaleziono starej bazy Fitatu."
-    );
-
-    return [];
-  }
-
-
-  /*
-     Wybieramy największą znalezioną bazę.
-  */
-
-  candidates.sort(
-    (a, b) =>
-      b.rows.length -
-      a.rows.length
-  );
-
-
-  const best =
-    candidates[0];
-
-
-  console.log(
-    "FuelTrack: odzyskano dane z:",
-    best.key,
-    "rekordów:",
-    best.rows.length
-  );
-
-
-  return best.rows;
-}
-
-
-/* =========================================================
-   BEZPIECZNY ZAPIS
+   STORAGE — ZAPIS
 ========================================================= */
 
 function saveFood() {
-
-  /*
-     KRYTYCZNE ZABEZPIECZENIE.
-
-     Jeżeli mamy istniejącą bazę
-     i nowa tablica jest pusta,
-     NIE WOLNO jej nadpisać.
-  */
-
-  if (
-    foodRows.length === 0
-  ) {
-
-    const existing =
-      readFoodFromKey(FOOD_KEY);
-
-    if (existing.length) {
-
-      console.warn(
-        "FuelTrack: zablokowano próbę nadpisania istniejącej bazy pustą tablicą."
-      );
-
-      return;
-    }
-
-  }
-
 
   localStorage.setItem(
     FOOD_KEY,
@@ -503,162 +301,29 @@ function saveFood() {
   );
 }
 
-
 function saveWorkouts() {
 
-  localStorage.setItem(
-    WORKOUT_KEY,
-    JSON.stringify(workouts)
-  );
-}
+  try {
 
-
-/* =========================================================
-   WCZYTANIE WSZYSTKICH DANYCH
-========================================================= */
-
-function loadAll() {
-
-  /*
-     FITATU
-  */
-
-  const currentFood =
-    readFoodFromKey(
-      FOOD_KEY
+    localStorage.setItem(
+      WORKOUT_KEY,
+      JSON.stringify(workouts)
     );
 
+  } catch (error) {
 
-  if (currentFood.length) {
-
-    foodRows =
-      currentFood;
-
-  }
-
-  else {
-
-    /*
-       Odzyskujemy poprzednią bazę.
-    */
-
-    const recovered =
-      recoverFoodData();
-
-
-    if (recovered.length) {
-
-      foodRows =
-        recovered;
-
-      /*
-         Migracja do nowego,
-         stabilnego klucza.
-
-         Stare dane NIE są usuwane.
-      */
-
-      localStorage.setItem(
-        FOOD_KEY,
-        JSON.stringify(foodRows)
-      );
-
-      console.log(
-        "FuelTrack: baza Fitatu zmigrowana."
-      );
-
-    }
-
-    else {
-
-      foodRows = [];
-
-    }
-
-  }
-
-
-  /*
-     TRENINGI
-  */
-
-  const currentWorkouts =
-    safeParse(
-      localStorage.getItem(
-        WORKOUT_KEY
-      )
+    console.error(
+      "Błąd zapisu treningów:",
+      error
     );
 
-
-  if (
-    Array.isArray(
-      currentWorkouts
-    )
-  ) {
-
-    workouts =
-      currentWorkouts;
+    status(
+      "Nie udało się zapisać treningu. Pamięć przeglądarki może być pełna.",
+      true
+    );
 
   }
-
-  else {
-
-    workouts = [];
-
-
-    /*
-       Odzyskiwanie starych treningów.
-    */
-
-    for (
-      const key of OLD_WORKOUT_KEYS
-    ) {
-
-      const old =
-        safeParse(
-          localStorage.getItem(key)
-        );
-
-
-      if (
-        Array.isArray(old) &&
-        old.length
-      ) {
-
-        workouts =
-          old;
-
-        localStorage.setItem(
-          WORKOUT_KEY,
-          JSON.stringify(
-            workouts
-          )
-        );
-
-        break;
-
-      }
-
-    }
-
-  }
-
-
-  console.log(
-    "FuelTrack: Fitatu rekordów:",
-    foodRows.length
-  );
-
-  console.log(
-    "FuelTrack: treningów:",
-    workouts.length
-  );
 }
-
-
-/* =========================================================
-   CELE
-========================================================= */
 
 function loadGoals() {
 
@@ -675,9 +340,63 @@ function loadGoals() {
   };
 }
 
+function loadAll() {
+
+  const savedFood =
+    safeParse(
+      localStorage.getItem(
+        FOOD_KEY
+      )
+    );
+
+  if (looksLikeFitatu(savedFood)) {
+
+    foodRows =
+      normaliseRows(
+        savedFood
+      );
+
+  } else {
+
+    foodRows =
+      recoverOldFoodData();
+
+    if (foodRows.length) {
+      saveFood();
+    }
+  }
+
+  const savedWorkouts =
+    safeParse(
+      localStorage.getItem(
+        WORKOUT_KEY
+      )
+    );
+
+  workouts =
+    Array.isArray(savedWorkouts)
+      ? savedWorkouts
+      : [];
+
+  /*
+     Zabezpieczenie starych treningów.
+     Jeżeli wcześniejsza wersja nie miała pola screens,
+     dodajemy puste pole bez kasowania pozostałych danych.
+  */
+
+  workouts =
+    workouts.map(workout => ({
+      ...workout,
+      screens:
+        Array.isArray(workout.screens)
+          ? workout.screens
+          : []
+    }));
+}
+
 
 /* =========================================================
-   CSV
+   CSV FITATU
 ========================================================= */
 
 function parseCSV(text) {
@@ -686,11 +405,9 @@ function parseCSV(text) {
     text.replace(/^\uFEFF/, "");
 
   const rows = [];
-
   let row = [];
   let cell = "";
   let quoted = false;
-
 
   for (
     let i = 0;
@@ -704,7 +421,6 @@ function parseCSV(text) {
     const next =
       text[i + 1];
 
-
     if (char === '"') {
 
       if (
@@ -713,32 +429,24 @@ function parseCSV(text) {
       ) {
 
         cell += '"';
-
         i++;
 
-      }
-
-      else {
+      } else {
 
         quoted =
           !quoted;
 
       }
 
-    }
-
-    else if (
+    } else if (
       char === "," &&
       !quoted
     ) {
 
       row.push(cell);
-
       cell = "";
 
-    }
-
-    else if (
+    } else if (
       (
         char === "\n" ||
         char === "\r"
@@ -754,9 +462,7 @@ function parseCSV(text) {
       }
 
       row.push(cell);
-
       cell = "";
-
 
       if (
         row.some(
@@ -771,16 +477,12 @@ function parseCSV(text) {
 
       row = [];
 
-    }
-
-    else {
+    } else {
 
       cell += char;
 
     }
-
   }
-
 
   if (
     cell !== "" ||
@@ -799,20 +501,17 @@ function parseCSV(text) {
       rows.push(row);
 
     }
-
   }
-
 
   if (!rows.length) {
     return [];
   }
 
-
   const headers =
     rows[0].map(
-      h => h.trim()
+      h =>
+        h.trim()
     );
-
 
   return rows
     .slice(1)
@@ -821,7 +520,10 @@ function parseCSV(text) {
       const object = {};
 
       headers.forEach(
-        (header, index) => {
+        (
+          header,
+          index
+        ) => {
 
           object[header] =
             (
@@ -869,7 +571,6 @@ function getDates() {
 
   ];
 
-
   return [
     ...new Set(dates)
   ].sort().reverse();
@@ -877,7 +578,7 @@ function getDates() {
 
 
 /* =========================================================
-   BILANS
+   BILANS ŻYWIENIA
 ========================================================= */
 
 function totalsForDate(date) {
@@ -888,7 +589,6 @@ function totalsForDate(date) {
         row["Data"] === date
     );
 
-
   const totals = {
     kcal: 0,
     protein: 0,
@@ -896,31 +596,37 @@ function totalsForDate(date) {
     fat: 0
   };
 
-
   rows.forEach(row => {
 
     totals.kcal +=
       num(
-        row["kalorie (kcal)"]
+        row[
+          "kalorie (kcal)"
+        ]
       );
 
     totals.protein +=
       num(
-        row["Białka (g)"]
+        row[
+          "Białka (g)"
+        ]
       );
 
     totals.carbs +=
       num(
-        row["Węglowodany (g)"]
+        row[
+          "Węglowodany (g)"
+        ]
       );
 
     totals.fat +=
       num(
-        row["Tłuszcze (g)"]
+        row[
+          "Tłuszcze (g)"
+        ]
       );
 
   });
-
 
   return {
     rows,
@@ -938,25 +644,19 @@ function renderDateSelector() {
   const select =
     $("dateSelect");
 
-  if (!select) {
-    return;
-  }
-
+  if (!select) return;
 
   const dates =
     getDates();
-
 
   if (!dates.length) {
 
     selectedDate = "";
 
-
     select.innerHTML =
       `<option value="">
         Brak danych
       </option>`;
-
 
     if ($("selectedDateLabel")) {
 
@@ -966,7 +666,6 @@ function renderDateSelector() {
 
     }
 
-
     if ($("dayCount")) {
 
       $("dayCount")
@@ -975,10 +674,8 @@ function renderDateSelector() {
 
     }
 
-
     return;
   }
-
 
   if (
     !selectedDate ||
@@ -992,19 +689,18 @@ function renderDateSelector() {
 
   }
 
-
   select.innerHTML =
-    dates.map(
-      date =>
-        `<option value="${esc(date)}">
-          ${esc(date)}
-        </option>`
-    ).join("");
-
+    dates
+      .map(
+        date =>
+          `<option value="${esc(date)}">
+            ${esc(date)}
+          </option>`
+      )
+      .join("");
 
   select.value =
     selectedDate;
-
 
   if ($("selectedDateLabel")) {
 
@@ -1013,7 +709,6 @@ function renderDateSelector() {
       selectedDate;
 
   }
-
 
   if ($("dayCount")) {
 
@@ -1026,7 +721,6 @@ function renderDateSelector() {
       }`;
 
   }
-
 }
 
 
@@ -1039,10 +733,7 @@ function renderMeals() {
   const box =
     $("meals");
 
-  if (!box) {
-    return;
-  }
-
+  if (!box) return;
 
   if (!selectedDate) {
 
@@ -1052,7 +743,6 @@ function renderMeals() {
     return;
   }
 
-
   const rows =
     foodRows.filter(
       row =>
@@ -1060,18 +750,17 @@ function renderMeals() {
         selectedDate
     );
 
-
   if (!rows.length) {
 
     box.innerHTML =
-      `<p>Brak posiłków dla tego dnia.</p>`;
+      `<p>
+        Brak posiłków dla tego dnia.
+      </p>`;
 
     return;
   }
 
-
   const groups = {};
-
 
   rows.forEach(row => {
 
@@ -1079,21 +768,20 @@ function renderMeals() {
       row["Posiłek"] ||
       "Inne";
 
-
     if (!groups[meal]) {
       groups[meal] = [];
     }
-
 
     groups[meal].push(row);
 
   });
 
-
   box.innerHTML =
     Object.entries(groups)
       .map(
-        ([meal, products]) => {
+        (
+          [meal, products]
+        ) => {
 
           return `
             <div class="meal">
@@ -1102,71 +790,75 @@ function renderMeals() {
                 ${esc(meal)}
               </h3>
 
-              ${products.map(product => {
+              ${products
+                .map(product => {
 
-                const name =
-                  product[
-                    "Produkty i potrawy"
-                  ] ||
-                  "Produkt";
-
-
-                const kcal =
-                  num(
+                  const name =
                     product[
-                      "kalorie (kcal)"
-                    ]
-                  );
+                      "Produkty i potrawy"
+                    ] ||
+                    "Produkt";
 
+                  const kcal =
+                    num(
+                      product[
+                        "kalorie (kcal)"
+                      ]
+                    );
 
-                const protein =
-                  num(
-                    product[
-                      "Białka (g)"
-                    ]
-                  );
+                  const protein =
+                    num(
+                      product[
+                        "Białka (g)"
+                      ]
+                    );
 
+                  const carbs =
+                    num(
+                      product[
+                        "Węglowodany (g)"
+                      ]
+                    );
 
-                const carbs =
-                  num(
-                    product[
-                      "Węglowodany (g)"
-                    ]
-                  );
+                  const fat =
+                    num(
+                      product[
+                        "Tłuszcze (g)"
+                      ]
+                    );
 
+                  return `
+                    <div
+                      class="product"
+                      style="
+                        padding:10px 0;
+                        border-bottom:1px solid #eee;
+                      "
+                    >
 
-                const fat =
-                  num(
-                    product[
-                      "Tłuszcze (g)"
-                    ]
-                  );
+                      <strong>
+                        ${esc(name)}
+                      </strong>
 
+                      <div>
+                        ${fmt(kcal)}
+                        kcal
+                        · B
+                        ${fmt(protein)}
+                        g
+                        · W
+                        ${fmt(carbs)}
+                        g
+                        · T
+                        ${fmt(fat)}
+                        g
+                      </div>
 
-                return `
-                  <div
-                    class="product"
-                    style="
-                      padding:10px 0;
-                      border-bottom:1px solid #eee;
-                    "
-                  >
-
-                    <strong>
-                      ${esc(name)}
-                    </strong>
-
-                    <div>
-                      ${fmt(kcal)} kcal
-                      · B ${fmt(protein)} g
-                      · W ${fmt(carbs)} g
-                      · T ${fmt(fat)} g
                     </div>
+                  `;
 
-                  </div>
-                `;
-
-              }).join("")}
+                })
+                .join("")}
 
             </div>
           `;
@@ -1189,46 +881,36 @@ function renderMacro() {
       selectedDate
     );
 
-
   const totals =
     result.totals;
 
-
   if ($("kcal")) {
 
-    $("kcal")
-      .textContent =
+    $("kcal").textContent =
       fmt(totals.kcal);
 
   }
 
-
   if ($("protein")) {
 
-    $("protein")
-      .textContent =
+    $("protein").textContent =
       fmt(totals.protein);
 
   }
 
-
   if ($("carbs")) {
 
-    $("carbs")
-      .textContent =
+    $("carbs").textContent =
       fmt(totals.carbs);
 
   }
 
-
   if ($("fat")) {
 
-    $("fat")
-      .textContent =
+    $("fat").textContent =
       fmt(totals.fat);
 
   }
-
 }
 
 
@@ -1241,10 +923,7 @@ function renderMicro() {
   const box =
     $("micros");
 
-  if (!box) {
-    return;
-  }
-
+  if (!box) return;
 
   const rows =
     foodRows.filter(
@@ -1252,7 +931,6 @@ function renderMicro() {
         row["Data"] ===
         selectedDate
     );
-
 
   if (!rows.length) {
 
@@ -1262,15 +940,23 @@ function renderMicro() {
     return;
   }
 
-
   box.innerHTML =
     MICRO_COLUMNS
       .map(
-        ([column, label, unit]) => {
+        (
+          [
+            column,
+            label,
+            unit
+          ]
+        ) => {
 
           const total =
             rows.reduce(
-              (sum, row) =>
+              (
+                sum,
+                row
+              ) =>
                 sum +
                 num(
                   row[column]
@@ -1278,11 +964,9 @@ function renderMicro() {
               0
             );
 
-
           if (!total) {
             return "";
           }
-
 
           return `
             <div
@@ -1309,12 +993,519 @@ function renderMicro() {
         }
       )
       .join("");
-
 }
 
 
 /* =========================================================
-   TRENINGI
+   GARMIN — KOMPRESJA OBRAZU
+========================================================= */
+
+/*
+   Screen z iPhone'a może mieć kilka MB.
+   Przed zapisaniem zmniejszamy go do maks.
+   1600 px szerokości/wysokości i JPEG ~70%.
+*/
+
+function compressImage(
+  file,
+  maxSize = 1600,
+  quality = 0.70
+) {
+
+  return new Promise(
+    (
+      resolve,
+      reject
+    ) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload = event => {
+
+        const image =
+          new Image();
+
+        image.onload = () => {
+
+          let width =
+            image.naturalWidth;
+
+          let height =
+            image.naturalHeight;
+
+          if (
+            width > maxSize ||
+            height > maxSize
+          ) {
+
+            const ratio =
+              Math.min(
+                maxSize / width,
+                maxSize / height
+              );
+
+            width =
+              Math.round(
+                width * ratio
+              );
+
+            height =
+              Math.round(
+                height * ratio
+              );
+
+          }
+
+          const canvas =
+            document.createElement(
+              "canvas"
+            );
+
+          canvas.width =
+            width;
+
+          canvas.height =
+            height;
+
+          const ctx =
+            canvas.getContext(
+              "2d"
+            );
+
+          ctx.drawImage(
+            image,
+            0,
+            0,
+            width,
+            height
+          );
+
+          const result =
+            canvas.toDataURL(
+              "image/jpeg",
+              quality
+            );
+
+          resolve(result);
+
+        };
+
+        image.onerror =
+          () =>
+            reject(
+              new Error(
+                "Nie udało się odczytać obrazu."
+              )
+            );
+
+        image.src =
+          event.target.result;
+
+      };
+
+      reader.onerror =
+        () =>
+          reject(
+            new Error(
+              "Nie udało się wczytać pliku."
+            )
+          );
+
+      reader.readAsDataURL(file);
+
+    }
+  );
+}
+
+
+/* =========================================================
+   GARMIN — UI
+========================================================= */
+
+function renderWorkoutScreens(
+  workout
+) {
+
+  const box =
+    $(
+      `workoutScreens-${workout.id}`
+    );
+
+  if (!box) return;
+
+  const screens =
+    Array.isArray(
+      workout.screens
+    )
+      ? workout.screens
+      : [];
+
+  if (!screens.length) {
+
+    box.innerHTML = `
+      <div
+        style="
+          margin-top:12px;
+          padding:12px;
+          border-radius:14px;
+          background:#fff;
+          color:#777;
+          font-size:14px;
+        "
+      >
+        Brak screenów Garmin.
+      </div>
+    `;
+
+    return;
+  }
+
+  box.innerHTML = `
+    <div
+      style="
+        margin-top:14px;
+        padding-top:14px;
+        border-top:1px solid #ddd;
+      "
+    >
+
+      <div
+        style="
+          font-weight:800;
+          margin-bottom:10px;
+        "
+      >
+        📱 Screeny Garmin
+      </div>
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+          gap:10px;
+        "
+      >
+
+        ${screens
+          .map(
+            (
+              screen,
+              index
+            ) => `
+              <div
+                style="
+                  position:relative;
+                  border-radius:14px;
+                  overflow:hidden;
+                  background:#eee;
+                "
+              >
+
+                <img
+                  src="${screen.data}"
+                  alt="Screen Garmin ${index + 1}"
+                  style="
+                    display:block;
+                    width:100%;
+                    height:auto;
+                    max-height:320px;
+                    object-fit:contain;
+                  "
+                >
+
+                <button
+                  data-delete-screen="
+                    ${esc(workout.id)}
+                  "
+                  data-screen-index="
+                    ${index}
+                  "
+                  style="
+                    position:absolute;
+                    top:7px;
+                    right:7px;
+                    width:32px;
+                    height:32px;
+                    border:0;
+                    border-radius:50%;
+                    background:#b42318;
+                    color:white;
+                    font-size:18px;
+                    font-weight:800;
+                  "
+                >
+                  ×
+                </button>
+
+              </div>
+            `
+          )
+          .join("")}
+
+      </div>
+
+    </div>
+  `;
+
+  box
+    .querySelectorAll(
+      "[data-delete-screen]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        const workoutId =
+          button.dataset
+            .deleteScreen;
+
+        const index =
+          Number(
+            button.dataset
+              .screenIndex
+          );
+
+        const target =
+          workouts.find(
+            item =>
+              String(item.id) ===
+              String(workoutId)
+          );
+
+        if (!target) return;
+
+        if (
+          !confirm(
+            "Usunąć ten screen Garmin?"
+          )
+        ) {
+          return;
+        }
+
+        target.screens =
+          Array.isArray(
+            target.screens
+          )
+            ? target.screens
+            : [];
+
+        target.screens.splice(
+          index,
+          1
+        );
+
+        saveWorkouts();
+
+        renderWorkoutScreens(
+          target
+        );
+
+        status(
+          "Screen usunięty."
+        );
+
+      };
+
+    });
+}
+
+
+/* =========================================================
+   GARMIN — DODAWANIE SCREENÓW
+========================================================= */
+
+async function addGarminScreens(
+  workoutId
+) {
+
+  const workout =
+    workouts.find(
+      item =>
+        String(item.id) ===
+        String(workoutId)
+    );
+
+  if (!workout) {
+
+    status(
+      "Nie znaleziono treningu.",
+      true
+    );
+
+    return;
+  }
+
+  const current =
+    Array.isArray(
+      workout.screens
+    )
+      ? workout.screens
+      : [];
+
+  if (current.length >= 4) {
+
+    status(
+      "Ten trening ma już 4 screeny Garmin.",
+      true
+    );
+
+    return;
+  }
+
+  const input =
+    document.createElement(
+      "input"
+    );
+
+  input.type =
+    "file";
+
+  input.accept =
+    "image/*";
+
+  /*
+     Pozwala na zaznaczenie kilku
+     zdjęć jednocześnie na iPhone.
+  */
+
+  input.multiple = true;
+
+  input.onchange =
+    async event => {
+
+      let files =
+        Array.from(
+          event.target.files ||
+          []
+        );
+
+      if (!files.length) {
+        return;
+      }
+
+      const available =
+        4 - current.length;
+
+      if (
+        files.length >
+        available
+      ) {
+
+        status(
+          `Możesz dodać jeszcze tylko ${available} ${
+            available === 1
+              ? "screen"
+              : "screeny"
+          }.`,
+          true
+        );
+
+        files =
+          files.slice(
+            0,
+            available
+          );
+
+      }
+
+      status(
+        `Przygotowuję ${files.length} screen${
+          files.length === 1
+            ? ""
+            : "y"
+        }...`
+      );
+
+      try {
+
+        for (
+          const file of files
+        ) {
+
+          if (
+            !file.type.startsWith(
+              "image/"
+            )
+          ) {
+            continue;
+          }
+
+          const compressed =
+            await compressImage(
+              file
+            );
+
+          current.push({
+            id:
+              Date.now().toString() +
+              "-" +
+              Math.random()
+                .toString(36)
+                .slice(2),
+
+            name:
+              file.name,
+
+            data:
+              compressed,
+
+            addedAt:
+              new Date()
+                .toISOString()
+          });
+
+        }
+
+        workout.screens =
+          current;
+
+        saveWorkouts();
+
+        renderWorkouts();
+
+        status(
+          `Dodano screeny Garmin. Razem: ${current.length}/4.`
+        );
+
+      } catch (error) {
+
+        console.error(
+          error
+        );
+
+        status(
+          "Nie udało się zapisać screenów.",
+          true
+        );
+
+      }
+
+    };
+
+  /*
+     input nie jest częścią index.html.
+     Tworzymy go tymczasowo i klikamy programowo.
+  */
+
+  document.body.appendChild(
+    input
+  );
+
+  input.click();
+
+  setTimeout(
+    () => {
+      input.remove();
+    },
+    1000
+  );
+}
+
+
+/* =========================================================
+   TRENINGI — UI
 ========================================================= */
 
 function createWorkoutSection() {
@@ -1323,25 +1514,22 @@ function createWorkoutSection() {
     return;
   }
 
-
   const section =
     document.createElement(
       "section"
     );
 
-
   section.id =
     "workoutSection";
-
 
   section.style.cssText = `
     background:white;
     border-radius:28px;
     padding:24px;
     margin:22px 0;
-    box-shadow:0 4px 20px rgba(0,0,0,.06);
+    box-shadow:
+      0 4px 20px rgba(0,0,0,.06);
   `;
-
 
   section.innerHTML = `
 
@@ -1376,9 +1564,7 @@ function createWorkoutSection() {
 
     </div>
 
-
     <div id="workouts"></div>
-
 
     <div
       id="workoutForm"
@@ -1395,84 +1581,145 @@ function createWorkoutSection() {
         Nowy trening
       </h3>
 
-
       <input
         id="wType"
-        placeholder="Rodzaj, np. Easy Run / Interwały"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        placeholder="
+          Rodzaj, np. Easy Run / Interwały
+        "
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wDistance"
         type="number"
         step="0.01"
         placeholder="Dystans km"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wTime"
         placeholder="Czas, np. 52:34"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wPace"
         placeholder="Tempo, np. 5:18/km"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wHr"
         type="number"
         placeholder="Średnie tętno"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wMaxHr"
         type="number"
         placeholder="Maksymalne tętno"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wCalories"
         type="number"
         placeholder="Kalorie treningu"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wCadence"
         type="number"
         placeholder="Kadencja"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <input
         id="wElevation"
         type="number"
         placeholder="Przewyższenie m"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       >
-
 
       <textarea
         id="wNote"
         placeholder="Odczucia / notatka"
         rows="3"
-        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd
+        "
       ></textarea>
-
 
       <div
         style="
@@ -1497,7 +1744,6 @@ function createWorkoutSection() {
           Zapisz trening
         </button>
 
-
         <button
           id="cancelWorkoutBtn"
           style="
@@ -1517,10 +1763,8 @@ function createWorkoutSection() {
     </div>
   `;
 
-
   const history =
     $("history");
-
 
   if (
     history &&
@@ -1530,9 +1774,7 @@ function createWorkoutSection() {
     history.parentElement
       .before(section);
 
-  }
-
-  else {
+  } else {
 
     document.body.appendChild(
       section
@@ -1540,13 +1782,12 @@ function createWorkoutSection() {
 
   }
 
-
   setupWorkoutEvents();
 }
 
 
 /* =========================================================
-   OBSŁUGA TRENINGÓW
+   TRENINGI — OBSŁUGA
 ========================================================= */
 
 function setupWorkoutEvents() {
@@ -1560,7 +1801,6 @@ function setupWorkoutEvents() {
   const cancel =
     $("cancelWorkoutBtn");
 
-
   if (add) {
 
     add.onclick = () => {
@@ -1568,29 +1808,27 @@ function setupWorkoutEvents() {
       if (!selectedDate) {
 
         status(
-          "Najpierw wybierz dzień.",
+          "Najpierw zaimportuj Fitatu albo wybierz dzień.",
           true
         );
 
         return;
       }
 
-
       $("workoutForm")
         .style.display =
         "block";
 
-
       $("workoutForm")
         .scrollIntoView({
-          behavior: "smooth",
-          block: "center"
+          behavior:
+            "smooth",
+          block:
+            "center"
         });
 
     };
-
   }
-
 
   if (cancel) {
 
@@ -1601,9 +1839,7 @@ function setupWorkoutEvents() {
         "none";
 
     };
-
   }
-
 
   if (save) {
 
@@ -1611,7 +1847,6 @@ function setupWorkoutEvents() {
       saveWorkout;
 
   }
-
 }
 
 
@@ -1631,7 +1866,6 @@ function saveWorkout() {
     return;
   }
 
-
   const workout = {
 
     id:
@@ -1641,49 +1875,64 @@ function saveWorkout() {
       selectedDate,
 
     type:
-      $("wType").value.trim(),
+      $("wType")
+        .value
+        .trim(),
 
     distance:
       num(
-        $("wDistance").value
+        $("wDistance")
+          .value
       ),
 
     time:
-      $("wTime").value.trim(),
+      $("wTime")
+        .value
+        .trim(),
 
     pace:
-      $("wPace").value.trim(),
+      $("wPace")
+        .value
+        .trim(),
 
     hr:
       num(
-        $("wHr").value
+        $("wHr")
+          .value
       ),
 
     maxHr:
       num(
-        $("wMaxHr").value
+        $("wMaxHr")
+          .value
       ),
 
     calories:
       num(
-        $("wCalories").value
+        $("wCalories")
+          .value
       ),
 
     cadence:
       num(
-        $("wCadence").value
+        $("wCadence")
+          .value
       ),
 
     elevation:
       num(
-        $("wElevation").value
+        $("wElevation")
+          .value
       ),
 
     note:
-      $("wNote").value.trim()
+      $("wNote")
+        .value
+        .trim(),
+
+    screens: []
 
   };
-
 
   if (
     !workout.type &&
@@ -1692,21 +1941,18 @@ function saveWorkout() {
   ) {
 
     status(
-      "Wpisz rodzaj, dystans albo czas.",
+      "Wpisz przynajmniej rodzaj, dystans albo czas.",
       true
     );
 
     return;
   }
 
-
   workouts.push(
     workout
   );
 
-
   saveWorkouts();
-
 
   [
     "wType",
@@ -1727,14 +1973,11 @@ function saveWorkout() {
 
   });
 
-
   $("workoutForm")
     .style.display =
     "none";
 
-
   renderWorkouts();
-
 
   status(
     "Trening zapisany."
@@ -1751,10 +1994,7 @@ function renderWorkouts() {
   const box =
     $("workouts");
 
-  if (!box) {
-    return;
-  }
-
+  if (!box) return;
 
   const list =
     workouts.filter(
@@ -1762,7 +2002,6 @@ function renderWorkouts() {
         workout.date ===
         selectedDate
     );
-
 
   if (!list.length) {
 
@@ -1780,241 +2019,302 @@ function renderWorkouts() {
     return;
   }
 
-
   box.innerHTML =
-    list.map(workout => {
+    list
+      .map(workout => {
 
-      return `
-        <div
-          style="
-            padding:17px;
-            margin-bottom:12px;
-            border-radius:18px;
-            background:#f5f6fa;
-          "
-        >
+        const screens =
+          Array.isArray(
+            workout.screens
+          )
+            ? workout.screens
+            : [];
 
+        return `
           <div
             style="
-              font-size:18px;
-              font-weight:800;
+              padding:17px;
               margin-bottom:12px;
-            "
-          >
-            🏃 ${
-              esc(
-                workout.type ||
-                "Trening"
-              )
-            }
-          </div>
-
-
-          <div
-            style="
-              display:grid;
-              grid-template-columns:1fr 1fr;
-              gap:10px;
+              border-radius:18px;
+              background:#f5f6fa;
             "
           >
 
+            <div
+              style="
+                font-size:18px;
+                font-weight:800;
+                margin-bottom:12px;
+              "
+            >
+              🏃 ${
+                esc(
+                  workout.type ||
+                  "Trening"
+                )
+              }
+            </div>
+
+            <div
+              style="
+                display:grid;
+                grid-template-columns:
+                  1fr 1fr;
+                gap:10px;
+              "
+            >
+
+              ${
+                workout.distance
+                  ? `
+                    <div>
+                      <small>
+                        Dystans
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.distance
+                        )} km
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.time
+                  ? `
+                    <div>
+                      <small>
+                        Czas
+                      </small>
+                      <br>
+                      <b>
+                        ${esc(
+                          workout.time
+                        )}
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.pace
+                  ? `
+                    <div>
+                      <small>
+                        Tempo
+                      </small>
+                      <br>
+                      <b>
+                        ${esc(
+                          workout.pace
+                        )}
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.hr
+                  ? `
+                    <div>
+                      <small>
+                        Śr. HR
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.hr
+                        )}
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.maxHr
+                  ? `
+                    <div>
+                      <small>
+                        Max HR
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.maxHr
+                        )}
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.calories
+                  ? `
+                    <div>
+                      <small>
+                        Kalorie
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.calories
+                        )} kcal
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.cadence
+                  ? `
+                    <div>
+                      <small>
+                        Kadencja
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.cadence
+                        )}
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+              ${
+                workout.elevation
+                  ? `
+                    <div>
+                      <small>
+                        Przewyższenie
+                      </small>
+                      <br>
+                      <b>
+                        ${fmt(
+                          workout.elevation
+                        )} m
+                      </b>
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+
             ${
-              workout.distance
+              workout.note
                 ? `
-                  <div>
-                    <small>
-                      Dystans
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.distance
-                      )} km
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.time
-                ? `
-                  <div>
-                    <small>
-                      Czas
-                    </small>
-                    <br>
-                    <b>
-                      ${esc(
-                        workout.time
-                      )}
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.pace
-                ? `
-                  <div>
-                    <small>
-                      Tempo
-                    </small>
-                    <br>
-                    <b>
-                      ${esc(
-                        workout.pace
-                      )}
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.hr
-                ? `
-                  <div>
-                    <small>
-                      Śr. HR
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.hr
-                      )}
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.maxHr
-                ? `
-                  <div>
-                    <small>
-                      Max HR
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.maxHr
-                      )}
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.calories
-                ? `
-                  <div>
-                    <small>
-                      Kalorie
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.calories
-                      )} kcal
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.cadence
-                ? `
-                  <div>
-                    <small>
-                      Kadencja
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.cadence
-                      )}
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-
-            ${
-              workout.elevation
-                ? `
-                  <div>
-                    <small>
-                      Przewyższenie
-                    </small>
-                    <br>
-                    <b>
-                      ${fmt(
-                        workout.elevation
-                      )} m
-                    </b>
-                  </div>
-                `
-                : ""
-            }
-
-          </div>
-
-
-          ${
-            workout.note
-              ? `
-                <div
-                  style="
-                    margin-top:12px;
-                    padding-top:12px;
-                    border-top:1px solid #ddd;
-                  "
-                >
-                  📝 ${
-                    esc(
+                  <div
+                    style="
+                      margin-top:12px;
+                      padding-top:12px;
+                      border-top:1px solid #ddd;
+                    "
+                  >
+                    📝
+                    ${esc(
                       workout.note
-                    )
-                  }
-                </div>
-              `
-              : ""
-          }
+                    )}
+                  </div>
+                `
+                : ""
+            }
 
+            <div
+              style="
+                display:flex;
+                gap:8px;
+                flex-wrap:wrap;
+                margin-top:14px;
+              "
+            >
 
-          <button
-            data-delete-workout="${
-              esc(workout.id)
-            }"
-            style="
-              margin-top:14px;
-              border:0;
-              border-radius:10px;
-              padding:9px 13px;
-              background:#fee4e2;
-              color:#b42318;
-              font-weight:700;
-            "
-          >
-            Usuń trening
-          </button>
+              <button
+                data-add-screen-workout="
+                  ${esc(workout.id)}
+                "
+                style="
+                  border:0;
+                  border-radius:10px;
+                  padding:10px 13px;
+                  background:#e8efff;
+                  color:#2463eb;
+                  font-weight:700;
+                "
+              >
+                📷 Dodaj screeny z Garmin
+                ${
+                  screens.length
+                    ? `(${screens.length}/4)`
+                    : ""
+                }
+              </button>
 
-        </div>
-      `;
+              <button
+                data-delete-workout="
+                  ${esc(workout.id)}
+                "
+                style="
+                  border:0;
+                  border-radius:10px;
+                  padding:10px 13px;
+                  background:#fee4e2;
+                  color:#b42318;
+                  font-weight:700;
+                "
+              >
+                Usuń trening
+              </button>
 
-    }).join("");
+            </div>
 
+            <div
+              id="
+                workoutScreens-${esc(
+                  workout.id
+                )}
+              "
+            ></div>
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+  /*
+     Obsługa przycisków dodawania screenów.
+  */
+
+  box
+    .querySelectorAll(
+      "[data-add-screen-workout]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        addGarminScreens(
+          button.dataset
+            .addScreenWorkout
+        );
+
+      };
+
+    });
+
+  /*
+     Obsługa usuwania treningów.
+  */
 
   box
     .querySelectorAll(
@@ -2032,11 +2332,9 @@ function renderWorkouts() {
           return;
         }
 
-
         const id =
           button.dataset
             .deleteWorkout;
-
 
         workouts =
           workouts.filter(
@@ -2046,7 +2344,6 @@ function renderWorkouts() {
               ) !==
               String(id)
           );
-
 
         saveWorkouts();
 
@@ -2060,6 +2357,20 @@ function renderWorkouts() {
 
     });
 
+  /*
+     Po wyrenderowaniu pokazujemy screeny
+     każdego treningu.
+  */
+
+  list.forEach(
+    workout => {
+
+      renderWorkoutScreens(
+        workout
+      );
+
+    }
+  );
 }
 
 
@@ -2072,84 +2383,81 @@ function renderHistory() {
   const box =
     $("history");
 
-  if (!box) {
-    return;
-  }
-
+  if (!box) return;
 
   const dates =
     getDates();
 
-
   if (!dates.length) {
 
     box.innerHTML =
-      `<p>Brak zapisanych dni.</p>`;
+      `<p>
+        Brak zapisanych dni.
+      </p>`;
 
     return;
   }
 
-
   box.innerHTML =
-    dates.map(date => {
+    dates
+      .map(date => {
 
-      const result =
-        totalsForDate(date);
-
-
-      const workoutCount =
-        workouts.filter(
-          workout =>
-            workout.date ===
+        const result =
+          totalsForDate(
             date
-        ).length;
+          );
 
+        const workoutCount =
+          workouts.filter(
+            workout =>
+              workout.date ===
+              date
+          ).length;
 
-      return `
-        <div
-          style="
-            display:flex;
-            justify-content:space-between;
-            gap:10px;
-            align-items:center;
-            padding:12px 0;
-            border-bottom:1px solid #eee;
-          "
-        >
-
-          <button
-            data-history-date="${
-              esc(date)
-            }"
+        return `
+          <div
             style="
-              border:0;
-              background:none;
-              font-weight:700;
-              font-size:16px;
+              display:flex;
+              justify-content:space-between;
+              gap:10px;
+              align-items:center;
+              padding:12px 0;
+              border-bottom:1px solid #eee;
             "
           >
-            ${esc(date)}
-          </button>
 
+            <button
+              data-history-date="
+                ${esc(date)}
+              "
+              style="
+                border:0;
+                background:none;
+                font-weight:700;
+                font-size:16px;
+              "
+            >
+              ${esc(date)}
+            </button>
 
-          <span>
-            ${fmt(
-              result.totals.kcal
-            )}
-            kcal
+            <span>
+              ${fmt(
+                result.totals.kcal
+              )}
+              kcal
 
-            ${
-              workoutCount
-                ? ` · 🏃 ${workoutCount}`
-                : ""
-            }
-          </span>
+              ${
+                workoutCount
+                  ? ` · 🏃 ${workoutCount}`
+                  : ""
+              }
+            </span>
 
-        </div>
-      `;
+          </div>
+        `;
 
-    }).join("");
-
+      })
+      .join("");
 
   box
     .querySelectorAll(
@@ -2163,19 +2471,16 @@ function renderHistory() {
           button.dataset
             .historyDate;
 
-
         renderAll();
 
-
         window.scrollTo({
-          top: 0,
-          behavior: "smooth"
+          top:0,
+          behavior:"smooth"
         });
 
       };
 
     });
-
 }
 
 
@@ -2186,24 +2491,21 @@ function renderHistory() {
 function createReport(date) {
 
   const result =
-    totalsForDate(date);
-
+    totalsForDate(
+      date
+    );
 
   const rows =
     result.rows;
 
-
   const totals =
     result.totals;
-
 
   let text =
     `FUELTRACK AI\n` +
     `RAPORT DNIA: ${date}\n\n`;
 
-
   const meals = {};
-
 
   rows.forEach(row => {
 
@@ -2211,24 +2513,22 @@ function createReport(date) {
       row["Posiłek"] ||
       "Inne";
 
-
     if (!meals[meal]) {
       meals[meal] = [];
     }
-
 
     meals[meal].push(row);
 
   });
 
-
   Object.entries(meals)
     .forEach(
-      ([meal, products]) => {
+      (
+        [meal, products]
+      ) => {
 
         text +=
           `${meal.toUpperCase()}\n`;
-
 
         products.forEach(
           product => {
@@ -2241,9 +2541,10 @@ function createReport(date) {
                 "Produkt"
               }`;
 
-
             if (
-              product["ilość (g)"]
+              product[
+                "ilość (g)"
+              ]
             ) {
 
               text +=
@@ -2254,7 +2555,6 @@ function createReport(date) {
                 } g`;
 
             }
-
 
             text +=
               ` — ${
@@ -2267,7 +2567,6 @@ function createReport(date) {
                 )
               } kcal`;
 
-
             text +=
               ` | B ${
                 fmt(
@@ -2279,7 +2578,6 @@ function createReport(date) {
                 )
               } g`;
 
-
             text +=
               ` | W ${
                 fmt(
@@ -2290,7 +2588,6 @@ function createReport(date) {
                   )
                 )
               } g`;
-
 
             text +=
               ` | T ${
@@ -2306,12 +2603,10 @@ function createReport(date) {
           }
         );
 
-
         text += "\n";
 
       }
     );
-
 
   text +=
     `PODSUMOWANIE\n` +
@@ -2328,10 +2623,8 @@ function createReport(date) {
       totals.fat
     )} g\n\n`;
 
-
   text +=
     `TRENINGI\n`;
-
 
   const dayWorkouts =
     workouts.filter(
@@ -2340,15 +2633,14 @@ function createReport(date) {
         date
     );
 
-
-  if (!dayWorkouts.length) {
+  if (
+    !dayWorkouts.length
+  ) {
 
     text +=
       `Brak zapisanych treningów.\n`;
 
-  }
-
-  else {
+  } else {
 
     dayWorkouts.forEach(
       workout => {
@@ -2358,7 +2650,6 @@ function createReport(date) {
             workout.type ||
             "Trening"
           }`;
-
 
         if (workout.distance) {
 
@@ -2371,7 +2662,6 @@ function createReport(date) {
 
         }
 
-
         if (workout.time) {
 
           text +=
@@ -2381,7 +2671,6 @@ function createReport(date) {
 
         }
 
-
         if (workout.pace) {
 
           text +=
@@ -2390,7 +2679,6 @@ function createReport(date) {
             }`;
 
         }
-
 
         if (workout.hr) {
 
@@ -2403,7 +2691,6 @@ function createReport(date) {
 
         }
 
-
         if (workout.calories) {
 
           text +=
@@ -2415,25 +2702,30 @@ function createReport(date) {
 
         }
 
-
         text += "\n";
 
       }
     );
-
   }
-
 
   text +=
     `\nMIKROELEMENTY\n`;
 
-
   MICRO_COLUMNS.forEach(
-    ([column, label, unit]) => {
+    (
+      [
+        column,
+        label,
+        unit
+      ]
+    ) => {
 
       const total =
         rows.reduce(
-          (sum, row) =>
+          (
+            sum,
+            row
+          ) =>
             sum +
             num(
               row[column]
@@ -2441,19 +2733,17 @@ function createReport(date) {
           0
         );
 
-
       if (total) {
 
         text +=
-          `${label}: ${fmt(
-            total
-          )} ${unit}\n`;
+          `${label}: ${
+            fmt(total)
+          } ${unit}\n`;
 
       }
 
     }
   );
-
 
   return text;
 }
@@ -2475,49 +2765,41 @@ async function copyReport() {
     return;
   }
 
-
   const text =
     createReport(
       selectedDate
     );
 
-
   try {
 
     await navigator.clipboard
-      .writeText(text);
+      .writeText(
+        text
+      );
 
-  }
-
-  catch {
+  } catch {
 
     const textarea =
       document.createElement(
         "textarea"
       );
 
-
     textarea.value =
       text;
-
 
     document.body.appendChild(
       textarea
     );
 
-
     textarea.select();
-
 
     document.execCommand(
       "copy"
     );
 
-
     textarea.remove();
 
   }
-
 
   status(
     "Raport skopiowany."
@@ -2537,11 +2819,9 @@ function setupImport() {
   const input =
     $("fileInput");
 
-
   if (!button || !input) {
     return;
   }
-
 
   button.onclick = () => {
 
@@ -2549,18 +2829,13 @@ function setupImport() {
 
   };
 
-
   input.onchange =
     async event => {
 
       const file =
         event.target.files[0];
 
-
-      if (!file) {
-        return;
-      }
-
+      if (!file) return;
 
       try {
 
@@ -2569,7 +2844,6 @@ function setupImport() {
             await file.text()
           );
 
-
         if (!imported.length) {
 
           throw new Error(
@@ -2577,7 +2851,6 @@ function setupImport() {
           );
 
         }
-
 
         if (
           !(
@@ -2592,7 +2865,6 @@ function setupImport() {
 
         }
 
-
         const importedDates =
           [
             ...new Set(
@@ -2605,7 +2877,6 @@ function setupImport() {
             )
           ];
 
-
         const existingDates =
           new Set(
             foodRows
@@ -2616,7 +2887,6 @@ function setupImport() {
               .filter(Boolean)
           );
 
-
         const conflicts =
           importedDates.filter(
             date =>
@@ -2625,13 +2895,18 @@ function setupImport() {
               )
           );
 
-
-        if (conflicts.length) {
+        if (
+          conflicts.length
+        ) {
 
           const replace =
             confirm(
-              `Import zawiera ${importedDates.length} dni.\n\n` +
-              `Dni już zapisane: ${conflicts.length}\n` +
+              `Import zawiera ${
+                importedDates.length
+              } dni.\n\n` +
+              `Dni już zapisane: ${
+                conflicts.length
+              }\n` +
               `Nowe dni: ${
                 importedDates.length -
                 conflicts.length
@@ -2640,14 +2915,12 @@ function setupImport() {
               `Anuluj — zachowaj istniejące dni.`
             );
 
-
           if (replace) {
 
             const conflictSet =
               new Set(
                 conflicts
               );
-
 
             foodRows =
               foodRows.filter(
@@ -2657,14 +2930,11 @@ function setupImport() {
                   )
               );
 
-
             foodRows.push(
               ...imported
             );
 
-          }
-
-          else {
+          } else {
 
             foodRows.push(
               ...imported.filter(
@@ -2677,9 +2947,7 @@ function setupImport() {
 
           }
 
-        }
-
-        else {
+        } else {
 
           foodRows.push(
             ...imported
@@ -2687,45 +2955,21 @@ function setupImport() {
 
         }
 
-
-        /*
-           KRYTYCZNE:
-
-           Zapisujemy dopiero po prawidłowym
-           zakończeniu importu.
-        */
-
-        if (
-          foodRows.length === 0
-        ) {
-
-          throw new Error(
-            "Import nie zawiera żadnych danych. Baza nie została zmieniona."
-          );
-
-        }
-
-
         saveFood();
-
 
         selectedDate =
           importedDates[0] ||
           selectedDate;
 
-
         renderAll();
 
-
         status(
-          `Zaimportowano ${imported.length} rekordów Fitatu.`
+          `Zaimportowano ${
+            imported.length
+          } rekordów Fitatu.`
         );
 
-      }
-
-      catch (error) {
-
-        console.error(error);
+      } catch (error) {
 
         status(
           error.message ||
@@ -2735,11 +2979,9 @@ function setupImport() {
 
       }
 
-
       input.value = "";
 
     };
-
 }
 
 
@@ -2752,7 +2994,6 @@ function setupEvents() {
   const select =
     $("dateSelect");
 
-
   if (select) {
 
     select.onchange =
@@ -2761,17 +3002,14 @@ function setupEvents() {
         selectedDate =
           event.target.value;
 
-
         renderAll();
 
       };
 
   }
 
-
   const copy =
     $("copyBtn");
-
 
   if (copy) {
 
@@ -2779,7 +3017,6 @@ function setupEvents() {
       copyReport;
 
   }
-
 }
 
 
@@ -2812,45 +3049,35 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
 
-    console.log(
-      "FuelTrack AI uruchamianie..."
-    );
-
-
     loadAll();
-
 
     createWorkoutSection();
 
-
     setupImport();
-
 
     setupEvents();
 
-
     renderAll();
-
-
-    console.log(
-      "FuelTrack AI — Fitatu:",
-      foodRows.length
-    );
-
-
-    console.log(
-      "FuelTrack AI — treningi:",
-      workouts.length
-    );
-
 
     if (foodRows.length) {
 
-      status(
-        `Wczytano ${foodRows.length} rekordów Fitatu.`
+      console.log(
+        "FuelTrack AI: odzyskano rekordów Fitatu:",
+        foodRows.length
+      );
+
+    } else {
+
+      console.log(
+        "FuelTrack AI: brak danych Fitatu."
       );
 
     }
+
+    console.log(
+      "FuelTrack AI: treningów:",
+      workouts.length
+    );
 
   }
 );
