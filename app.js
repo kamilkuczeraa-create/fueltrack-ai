@@ -1,14 +1,20 @@
 /* =========================================================
-   FUELTRACK AI v0.7
-   FITATU + TRENINGI + SCREENY GARMIN
+   FUELTRACK AI
+   APP.JS
+   - Fitatu CSV
+   - trwała baza Fitatu
+   - treningi wykonane
+   - kalendarz planowanych treningów
+   - trwały zapis kalendarza
+   - raport tekstowy
 ========================================================= */
 
 const FOOD_KEY = "fueltrack_food_v04";
 const WORKOUT_KEY = "fueltrack_workouts_v04";
+const PLAN_KEY = "fueltrack_training_plans_v01";
 const GOALS_KEY = "fueltrack_goals_v04";
 
 const OLD_KEYS = [
-  "fueltrack_food_v04",
   "fueltrack_fitatu_v03",
   "fueltrack_fitatu_v02",
   "fueltrack_fitatu",
@@ -58,8 +64,10 @@ const MICRO_COLUMNS = [
 
 let foodRows = [];
 let workouts = [];
+let trainingPlans = [];
 let selectedDate = "";
-let selectedGarminScreens = [];
+
+let calendarDate = new Date();
 
 
 /* =========================================================
@@ -71,7 +79,12 @@ function $(id) {
 }
 
 function num(value) {
-  if (value === null || value === undefined || value === "") {
+
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return 0;
   }
 
@@ -85,18 +98,35 @@ function num(value) {
 }
 
 function fmt(value) {
-  return Number(value || 0).toLocaleString("pl-PL", {
-    maximumFractionDigits: 2
-  });
+
+  return Number(value || 0).toLocaleString(
+    "pl-PL",
+    {
+      maximumFractionDigits: 2
+    }
+  );
+
 }
 
 function esc(value) {
+
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+
+}
+
+function safeParse(value) {
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+
 }
 
 function status(text, error = false) {
@@ -125,6 +155,7 @@ function status(text, error = false) {
     `;
 
     document.body.appendChild(box);
+
   }
 
   box.style.background =
@@ -137,7 +168,8 @@ function status(text, error = false) {
 
   box._timer = setTimeout(() => {
     box.style.display = "none";
-  }, 4000);
+  }, 3500);
+
 }
 
 
@@ -145,25 +177,21 @@ function status(text, error = false) {
    STORAGE
 ========================================================= */
 
-function safeParse(value) {
-
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-
-}
-
 function looksLikeFitatu(array) {
 
-  if (!Array.isArray(array) || !array.length) {
+  if (
+    !Array.isArray(array) ||
+    !array.length
+  ) {
     return false;
   }
 
   const sample = array[0];
 
-  if (!sample || typeof sample !== "object") {
+  if (
+    !sample ||
+    typeof sample !== "object"
+  ) {
     return false;
   }
 
@@ -171,6 +199,7 @@ function looksLikeFitatu(array) {
     "Data" in sample ||
     "data" in sample
   );
+
 }
 
 function normaliseRows(rows) {
@@ -180,28 +209,37 @@ function normaliseRows(rows) {
   }
 
   return rows
-    .filter(row =>
-      row &&
-      typeof row === "object"
+    .filter(
+      row =>
+        row &&
+        typeof row === "object"
     )
     .map(row => {
 
       const copy = { ...row };
 
-      if (!copy["Data"] && copy.data) {
+      if (
+        !copy["Data"] &&
+        copy.data
+      ) {
         copy["Data"] = copy.data;
       }
 
       return copy;
 
     });
+
 }
 
 function recoverOldFoodData() {
 
   const candidates = [];
 
-  for (let i = 0; i < localStorage.length; i++) {
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
 
     const key =
       localStorage.key(i);
@@ -254,9 +292,7 @@ function recoverOldFoodData() {
       safeParse(raw);
 
     if (looksLikeFitatu(parsed)) {
-
       return normaliseRows(parsed);
-
     }
 
     if (
@@ -265,7 +301,9 @@ function recoverOldFoodData() {
       looksLikeFitatu(parsed.rows)
     ) {
 
-      return normaliseRows(parsed.rows);
+      return normaliseRows(
+        parsed.rows
+      );
 
     }
 
@@ -284,71 +322,33 @@ function recoverOldFoodData() {
   }
 
   return [];
+
 }
 
 function saveFood() {
 
-  try {
-
-    localStorage.setItem(
-      FOOD_KEY,
-      JSON.stringify(foodRows)
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Błąd zapisu Fitatu:",
-      error
-    );
-
-    status(
-      "Nie udało się zapisać danych Fitatu.",
-      true
-    );
-
-  }
+  localStorage.setItem(
+    FOOD_KEY,
+    JSON.stringify(foodRows)
+  );
 
 }
 
 function saveWorkouts() {
 
-  try {
-
-    localStorage.setItem(
-      WORKOUT_KEY,
-      JSON.stringify(workouts)
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Błąd zapisu treningów:",
-      error
-    );
-
-    status(
-      "Nie udało się zapisać treningu.",
-      true
-    );
-
-  }
+  localStorage.setItem(
+    WORKOUT_KEY,
+    JSON.stringify(workouts)
+  );
 
 }
 
-function loadGoals() {
+function saveTrainingPlans() {
 
-  const saved =
-    safeParse(
-      localStorage.getItem(
-        GOALS_KEY
-      )
-    );
-
-  return {
-    ...DEFAULT_GOALS,
-    ...(saved || {})
-  };
+  localStorage.setItem(
+    PLAN_KEY,
+    JSON.stringify(trainingPlans)
+  );
 
 }
 
@@ -387,6 +387,18 @@ function loadAll() {
   workouts =
     Array.isArray(savedWorkouts)
       ? savedWorkouts
+      : [];
+
+  const savedPlans =
+    safeParse(
+      localStorage.getItem(
+        PLAN_KEY
+      )
+    );
+
+  trainingPlans =
+    Array.isArray(savedPlans)
+      ? savedPlans
       : [];
 
 }
@@ -543,14 +555,22 @@ function getDates() {
   const dates = [
 
     ...foodRows
-      .map(row =>
-        row["Data"]
+      .map(
+        row => row["Data"]
       )
       .filter(Boolean),
 
     ...workouts
-      .map(workout =>
-        workout.date
+      .map(
+        workout =>
+          workout.date
+      )
+      .filter(Boolean),
+
+    ...trainingPlans
+      .map(
+        plan =>
+          plan.date
       )
       .filter(Boolean)
 
@@ -713,6 +733,7 @@ function renderMeals() {
       `<p>Brak danych.</p>`;
 
     return;
+
   }
 
   const rows =
@@ -728,6 +749,7 @@ function renderMeals() {
       `<p>Brak posiłków dla tego dnia.</p>`;
 
     return;
+
   }
 
   const groups = {};
@@ -748,80 +770,85 @@ function renderMeals() {
 
   box.innerHTML =
     Object.entries(groups)
-      .map(([meal, products]) => {
+      .map(
+        ([meal, products]) => {
 
-        return `
-          <div class="meal">
+          return `
+            <div class="meal">
 
-            <h3>
-              ${esc(meal)}
-            </h3>
+              <h3>
+                ${esc(meal)}
+              </h3>
 
-            ${products.map(product => {
+              ${products
+                .map(product => {
 
-              const name =
-                product[
-                  "Produkty i potrawy"
-                ] ||
-                "Produkt";
+                  const name =
+                    product[
+                      "Produkty i potrawy"
+                    ] ||
+                    "Produkt";
 
-              const kcal =
-                num(
-                  product[
-                    "kalorie (kcal)"
-                  ]
-                );
+                  const kcal =
+                    num(
+                      product[
+                        "kalorie (kcal)"
+                      ]
+                    );
 
-              const protein =
-                num(
-                  product[
-                    "Białka (g)"
-                  ]
-                );
+                  const protein =
+                    num(
+                      product[
+                        "Białka (g)"
+                      ]
+                    );
 
-              const carbs =
-                num(
-                  product[
-                    "Węglowodany (g)"
-                  ]
-                );
+                  const carbs =
+                    num(
+                      product[
+                        "Węglowodany (g)"
+                      ]
+                    );
 
-              const fat =
-                num(
-                  product[
-                    "Tłuszcze (g)"
-                  ]
-                );
+                  const fat =
+                    num(
+                      product[
+                        "Tłuszcze (g)"
+                      ]
+                    );
 
-              return `
-                <div
-                  class="product"
-                  style="
-                    padding:10px 0;
-                    border-bottom:1px solid #eee;
-                  "
-                >
+                  return `
+                    <div
+                      class="product"
+                      style="
+                        padding:10px 0;
+                        border-bottom:1px solid #eee;
+                      "
+                    >
 
-                  <strong>
-                    ${esc(name)}
-                  </strong>
+                      <strong>
+                        ${esc(name)}
+                      </strong>
 
-                  <div>
-                    ${fmt(kcal)} kcal
-                    · B ${fmt(protein)} g
-                    · W ${fmt(carbs)} g
-                    · T ${fmt(fat)} g
-                  </div>
+                      <div>
+                        ${fmt(kcal)} kcal
+                        · B ${fmt(protein)} g
+                        · W ${fmt(carbs)} g
+                        · T ${fmt(fat)} g
+                      </div>
 
-                </div>
-              `;
+                    </div>
+                  `;
 
-            }).join("")}
+                })
+                .join("")}
 
-          </div>
-        `;
+            </div>
+          `;
 
-      }).join("");
+        }
+      )
+      .join("");
 
 }
 
@@ -841,31 +868,23 @@ function renderMacro() {
     result.totals;
 
   if ($("kcal")) {
-
     $("kcal").textContent =
       fmt(totals.kcal);
-
   }
 
   if ($("protein")) {
-
     $("protein").textContent =
       fmt(totals.protein);
-
   }
 
   if ($("carbs")) {
-
     $("carbs").textContent =
       fmt(totals.carbs);
-
   }
 
   if ($("fat")) {
-
     $("fat").textContent =
       fmt(totals.fat);
-
   }
 
 }
@@ -945,279 +964,7 @@ function renderMicro() {
 
 
 /* =========================================================
-   SCREENY GARMIN
-========================================================= */
-
-function createGarminUploader() {
-
-  if ($("garminUploadBox")) {
-    return;
-  }
-
-  const box =
-    document.createElement("div");
-
-  box.id =
-    "garminUploadBox";
-
-  box.style.cssText = `
-    margin-top:18px;
-    padding:18px;
-    border-radius:20px;
-    background:#eef4ff;
-    border:1px solid #d8e4ff;
-  `;
-
-  box.innerHTML = `
-
-    <div
-      style="
-        font-size:17px;
-        font-weight:800;
-        margin-bottom:8px;
-      "
-    >
-      📸 Screeny z Garmina
-    </div>
-
-    <div
-      style="
-        font-size:14px;
-        color:#555;
-        line-height:1.45;
-        margin-bottom:14px;
-      "
-    >
-      Dodaj maksymalnie 4 screeny z aplikacji Garmin.
-      Możesz później przepisać dane ręcznie albo
-      wykorzystać screeny do analizy treningu.
-    </div>
-
-    <input
-      id="garminFileInput"
-      type="file"
-      accept="image/*"
-      multiple
-      style="
-        display:none;
-      "
-    >
-
-    <button
-      id="garminAddScreensBtn"
-      type="button"
-      style="
-        width:100%;
-        border:0;
-        border-radius:14px;
-        padding:14px;
-        background:#2463eb;
-        color:white;
-        font-weight:800;
-        font-size:15px;
-      "
-    >
-      📷 Dodaj screeny z Garmina
-    </button>
-
-    <div
-      id="garminScreenCounter"
-      style="
-        margin-top:10px;
-        font-size:14px;
-        font-weight:700;
-      "
-    >
-      Nie dodano screenów
-    </div>
-
-    <div
-      id="garminPreview"
-      style="
-        display:grid;
-        grid-template-columns:1fr 1fr;
-        gap:10px;
-        margin-top:12px;
-      "
-    ></div>
-
-  `;
-
-  const form =
-    $("workoutForm");
-
-  if (form) {
-    form.appendChild(box);
-  }
-
-  const button =
-    $("garminAddScreensBtn");
-
-  const input =
-    $("garminFileInput");
-
-  button.onclick = () => {
-
-    input.click();
-
-  };
-
-  input.onchange = event => {
-
-    const files =
-      Array.from(
-        event.target.files || []
-      );
-
-    if (!files.length) {
-      return;
-    }
-
-    if (
-      selectedGarminScreens.length +
-      files.length >
-      4
-    ) {
-
-      status(
-        "Możesz dodać maksymalnie 4 screeny.",
-        true
-      );
-
-      input.value = "";
-
-      return;
-    }
-
-    files.forEach(file => {
-
-      if (!file.type.startsWith("image/")) {
-        return;
-      }
-
-      const reader =
-        new FileReader();
-
-      reader.onload = event => {
-
-        selectedGarminScreens.push({
-          name: file.name,
-          data: event.target.result
-        });
-
-        renderGarminPreview();
-
-      };
-
-      reader.readAsDataURL(file);
-
-    });
-
-    input.value = "";
-
-  };
-
-}
-
-function renderGarminPreview() {
-
-  const preview =
-    $("garminPreview");
-
-  const counter =
-    $("garminScreenCounter");
-
-  if (!preview) return;
-
-  if (counter) {
-
-    counter.textContent =
-      selectedGarminScreens.length
-        ? `Dodano ${selectedGarminScreens.length} / 4 screenów`
-        : "Nie dodano screenów";
-
-  }
-
-  preview.innerHTML =
-    selectedGarminScreens
-      .map((screen, index) => {
-
-        return `
-          <div
-            style="
-              position:relative;
-              background:white;
-              border-radius:14px;
-              padding:6px;
-              box-shadow:0 2px 8px rgba(0,0,0,.08);
-            "
-          >
-
-            <img
-              src="${screen.data}"
-              alt="Screen Garmin ${index + 1}"
-              style="
-                width:100%;
-                height:180px;
-                object-fit:contain;
-                border-radius:10px;
-                display:block;
-              "
-            >
-
-            <button
-              type="button"
-              data-remove-garmin="${index}"
-              style="
-                position:absolute;
-                right:8px;
-                top:8px;
-                width:30px;
-                height:30px;
-                border:0;
-                border-radius:50%;
-                background:#b42318;
-                color:white;
-                font-weight:900;
-                font-size:16px;
-              "
-            >
-              ×
-            </button>
-
-          </div>
-        `;
-
-      }).join("");
-
-  preview
-    .querySelectorAll(
-      "[data-remove-garmin]"
-    )
-    .forEach(button => {
-
-      button.onclick = () => {
-
-        const index =
-          Number(
-            button.dataset
-              .removeGarmin
-          );
-
-        selectedGarminScreens
-          .splice(index, 1);
-
-        renderGarminPreview();
-
-      };
-
-    });
-
-}
-
-
-/* =========================================================
-   TRENINGI — UI
+   TRENINGI WYKONANE
 ========================================================= */
 
 function createWorkoutSection() {
@@ -1258,7 +1005,6 @@ function createWorkoutSection() {
 
       <button
         id="addWorkoutBtn"
-        type="button"
         style="
           border:0;
           border-radius:14px;
@@ -1287,9 +1033,7 @@ function createWorkoutSection() {
       "
     >
 
-      <h3>
-        Nowy trening
-      </h3>
+      <h3>Nowy trening</h3>
 
       <input
         id="wType"
@@ -1369,7 +1113,6 @@ function createWorkoutSection() {
 
         <button
           id="saveWorkoutBtn"
-          type="button"
           style="
             flex:1;
             border:0;
@@ -1385,7 +1128,6 @@ function createWorkoutSection() {
 
         <button
           id="cancelWorkoutBtn"
-          type="button"
           style="
             flex:1;
             border:0;
@@ -1401,7 +1143,6 @@ function createWorkoutSection() {
       </div>
 
     </div>
-
   `;
 
   const history =
@@ -1417,22 +1158,13 @@ function createWorkoutSection() {
 
   } else {
 
-    document.body.appendChild(
-      section
-    );
+    document.body.appendChild(section);
 
   }
-
-  createGarminUploader();
 
   setupWorkoutEvents();
 
 }
-
-
-/* =========================================================
-   TRENINGI — OBSŁUGA
-========================================================= */
 
 function setupWorkoutEvents() {
 
@@ -1452,16 +1184,13 @@ function setupWorkoutEvents() {
       if (!selectedDate) {
 
         status(
-          "Najpierw zaimportuj Fitatu albo wybierz dzień.",
+          "Najpierw wybierz dzień.",
           true
         );
 
         return;
+
       }
-
-      selectedGarminScreens = [];
-
-      renderGarminPreview();
 
       $("workoutForm")
         .style.display =
@@ -1469,8 +1198,8 @@ function setupWorkoutEvents() {
 
       $("workoutForm")
         .scrollIntoView({
-          behavior: "smooth",
-          block: "center"
+          behavior:"smooth",
+          block:"center"
         });
 
     };
@@ -1485,27 +1214,16 @@ function setupWorkoutEvents() {
         .style.display =
         "none";
 
-      selectedGarminScreens = [];
-
-      renderGarminPreview();
-
     };
 
   }
 
   if (save) {
-
     save.onclick =
       saveWorkout;
-
   }
 
 }
-
-
-/* =========================================================
-   ZAPIS TRENINGU
-========================================================= */
 
 function saveWorkout() {
 
@@ -1517,6 +1235,7 @@ function saveWorkout() {
     );
 
     return;
+
   }
 
   const workout = {
@@ -1567,42 +1286,26 @@ function saveWorkout() {
       ),
 
     note:
-      $("wNote").value.trim(),
-
-    /*
-       Screeny są zapisane razem z treningiem.
-       Dzięki temu później możemy wykorzystać
-       je do odczytu danych.
-    */
-
-    garminScreens:
-      selectedGarminScreens.map(
-        screen => ({
-          name: screen.name,
-          data: screen.data
-        })
-      )
+      $("wNote").value.trim()
 
   };
 
   if (
     !workout.type &&
     !workout.distance &&
-    !workout.time &&
-    !workout.garminScreens.length
+    !workout.time
   ) {
 
     status(
-      "Dodaj dane treningu albo przynajmniej jeden screen.",
+      "Wpisz przynajmniej rodzaj, dystans albo czas.",
       true
     );
 
     return;
+
   }
 
-  workouts.push(
-    workout
-  );
+  workouts.push(workout);
 
   saveWorkouts();
 
@@ -1625,26 +1328,18 @@ function saveWorkout() {
 
   });
 
-  selectedGarminScreens = [];
-
-  renderGarminPreview();
-
   $("workoutForm")
     .style.display =
     "none";
 
   renderWorkouts();
+  renderHistory();
 
   status(
     "Trening zapisany."
   );
 
 }
-
-
-/* =========================================================
-   WYŚWIETLANIE TRENINGÓW
-========================================================= */
 
 function renderWorkouts() {
 
@@ -1680,15 +1375,7 @@ function renderWorkouts() {
   box.innerHTML =
     list.map(workout => {
 
-      const screenCount =
-        Array.isArray(
-          workout.garminScreens
-        )
-          ? workout.garminScreens.length
-          : 0;
-
       return `
-
         <div
           style="
             padding:17px;
@@ -1705,12 +1392,10 @@ function renderWorkouts() {
               margin-bottom:12px;
             "
           >
-            🏃 ${
-              esc(
-                workout.type ||
-                "Trening"
-              )
-            }
+            🏃 ${esc(
+              workout.type ||
+              "Trening"
+            )}
           </div>
 
           <div
@@ -1723,129 +1408,81 @@ function renderWorkouts() {
 
             ${
               workout.distance
-                ? `
-                  <div>
+                ? `<div>
                     <small>Dystans</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.distance
-                      )} km
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.distance)} km</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.time
-                ? `
-                  <div>
+                ? `<div>
                     <small>Czas</small>
                     <br>
-                    <b>
-                      ${esc(
-                        workout.time
-                      )}
-                    </b>
-                  </div>
-                `
+                    <b>${esc(workout.time)}</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.pace
-                ? `
-                  <div>
+                ? `<div>
                     <small>Tempo</small>
                     <br>
-                    <b>
-                      ${esc(
-                        workout.pace
-                      )}
-                    </b>
-                  </div>
-                `
+                    <b>${esc(workout.pace)}</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.hr
-                ? `
-                  <div>
+                ? `<div>
                     <small>Śr. HR</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.hr
-                      )}
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.hr)}</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.maxHr
-                ? `
-                  <div>
+                ? `<div>
                     <small>Max HR</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.maxHr
-                      )}
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.maxHr)}</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.calories
-                ? `
-                  <div>
+                ? `<div>
                     <small>Kalorie</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.calories
-                      )} kcal
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.calories)} kcal</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.cadence
-                ? `
-                  <div>
+                ? `<div>
                     <small>Kadencja</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.cadence
-                      )}
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.cadence)}</b>
+                  </div>`
                 : ""
             }
 
             ${
               workout.elevation
-                ? `
-                  <div>
+                ? `<div>
                     <small>Przewyższenie</small>
                     <br>
-                    <b>
-                      ${fmt(
-                        workout.elevation
-                      )} m
-                    </b>
-                  </div>
-                `
+                    <b>${fmt(workout.elevation)} m</b>
+                  </div>`
                 : ""
             }
 
@@ -1861,77 +1498,14 @@ function renderWorkouts() {
                     border-top:1px solid #ddd;
                   "
                 >
-                  📝 ${
-                    esc(
-                      workout.note
-                    )
-                  }
+                  📝 ${esc(workout.note)}
                 </div>
               `
               : ""
           }
 
-          ${
-            screenCount
-              ? `
-                <details
-                  style="
-                    margin-top:14px;
-                  "
-                >
-
-                  <summary
-                    style="
-                      cursor:pointer;
-                      font-weight:700;
-                    "
-                  >
-                    📸 Screeny Garmin (${screenCount})
-                  </summary>
-
-                  <div
-                    style="
-                      display:grid;
-                      grid-template-columns:1fr 1fr;
-                      gap:10px;
-                      margin-top:12px;
-                    "
-                  >
-
-                    ${
-                      workout.garminScreens
-                        .map(
-                          screen => `
-                            <img
-                              src="${
-                                screen.data
-                              }"
-                              alt="Screen Garmin"
-                              style="
-                                width:100%;
-                                height:220px;
-                                object-fit:contain;
-                                border-radius:12px;
-                                background:white;
-                              "
-                            >
-                          `
-                        )
-                        .join("")
-                    }
-
-                  </div>
-
-                </details>
-              `
-              : ""
-          }
-
           <button
-            data-delete-workout="${
-              esc(workout.id)
-            }"
-            type="button"
+            data-delete-workout="${esc(workout.id)}"
             style="
               margin-top:14px;
               border:0;
@@ -1946,7 +1520,6 @@ function renderWorkouts() {
           </button>
 
         </div>
-
       `;
 
     }).join("");
@@ -1974,15 +1547,14 @@ function renderWorkouts() {
         workouts =
           workouts.filter(
             workout =>
-              String(
-                workout.id
-              ) !==
+              String(workout.id) !==
               String(id)
           );
 
         saveWorkouts();
 
         renderWorkouts();
+        renderHistory();
 
         status(
           "Trening usunięty."
@@ -1991,6 +1563,1267 @@ function renderWorkouts() {
       };
 
     });
+
+}
+
+
+/* =========================================================
+   KALENDARZ — STYLE
+========================================================= */
+
+function calendarStyles() {
+
+  if ($("calendarStyles")) {
+    return;
+  }
+
+  const style =
+    document.createElement("style");
+
+  style.id =
+    "calendarStyles";
+
+  style.textContent = `
+
+    .ft-calendar-grid {
+      display:grid;
+      grid-template-columns:repeat(7,1fr);
+      gap:5px;
+    }
+
+    .ft-calendar-weekday {
+      text-align:center;
+      font-size:12px;
+      font-weight:800;
+      color:#777;
+      padding:6px 0;
+    }
+
+    .ft-calendar-day {
+      min-height:72px;
+      border:1px solid #e5e7eb;
+      border-radius:12px;
+      background:#fff;
+      padding:7px;
+      box-sizing:border-box;
+      cursor:pointer;
+      text-align:left;
+    }
+
+    .ft-calendar-day:hover {
+      background:#f5f7fb;
+    }
+
+    .ft-calendar-empty {
+      min-height:72px;
+    }
+
+    .ft-calendar-number {
+      font-weight:800;
+      font-size:14px;
+    }
+
+    .ft-calendar-today {
+      border:2px solid #2463eb;
+    }
+
+    .ft-plan-dot {
+      margin-top:6px;
+      font-size:11px;
+      font-weight:700;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+
+    .ft-calendar-back {
+      display:none;
+    }
+
+    @media (max-width:600px) {
+
+      .ft-calendar-day {
+        min-height:64px;
+        padding:5px;
+      }
+
+      .ft-plan-dot {
+        font-size:10px;
+      }
+
+    }
+
+  `;
+
+  document.head.appendChild(style);
+
+}
+
+
+/* =========================================================
+   KALENDARZ — OKNO
+========================================================= */
+
+function createCalendarSection() {
+
+  if ($("calendarSection")) {
+    return;
+  }
+
+  calendarStyles();
+
+  const section =
+    document.createElement("section");
+
+  section.id =
+    "calendarSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+
+    <div
+      style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        margin-bottom:18px;
+      "
+    >
+
+      <h2 style="margin:0">
+        📅 Kalendarz treningów
+      </h2>
+
+      <button
+        id="closeCalendarBtn"
+        style="
+          border:0;
+          border-radius:12px;
+          padding:10px 14px;
+          background:#eee;
+          font-weight:700;
+        "
+      >
+        Zamknij
+      </button>
+
+    </div>
+
+    <div
+      id="calendarMonthHeader"
+      style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:14px;
+      "
+    >
+
+      <button
+        id="calendarPrev"
+        style="
+          border:0;
+          border-radius:12px;
+          padding:10px 14px;
+          background:#f0f2f5;
+          font-size:20px;
+        "
+      >
+        ‹
+      </button>
+
+      <strong
+        id="calendarMonthTitle"
+        style="
+          font-size:18px;
+          text-align:center;
+        "
+      ></strong>
+
+      <button
+        id="calendarNext"
+        style="
+          border:0;
+          border-radius:12px;
+          padding:10px 14px;
+          background:#f0f2f5;
+          font-size:20px;
+        "
+      >
+        ›
+      </button>
+
+    </div>
+
+    <div
+      id="calendarGrid"
+      class="ft-calendar-grid"
+    ></div>
+
+    <div
+      id="calendarPlanEditor"
+      style="
+        display:none;
+        margin-top:20px;
+        padding:18px;
+        border-radius:20px;
+        background:#f5f6fa;
+      "
+    >
+
+      <h3
+        id="calendarEditorTitle"
+        style="margin-top:0"
+      >
+        Zaplanuj trening
+      </h3>
+
+      <input
+        id="planName"
+        placeholder="Nazwa, np. 10 km Easy"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      >
+
+      <select
+        id="planType"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+          background:white;
+        "
+      >
+
+        <option value="Easy">
+          Easy
+        </option>
+
+        <option value="Long">
+          Long
+        </option>
+
+        <option value="Interwały">
+          Interwały
+        </option>
+
+        <option value="Podbiegi">
+          Podbiegi
+        </option>
+
+        <option value="Siłownia">
+          Siłownia
+        </option>
+
+        <option value="Regeneracja">
+          Regeneracja
+        </option>
+
+        <option value="Inne">
+          Inne
+        </option>
+
+      </select>
+
+      <input
+        id="planDistance"
+        type="number"
+        step="0.01"
+        placeholder="Planowany dystans km"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      >
+
+      <input
+        id="planPace"
+        placeholder="Planowane tempo, np. 5:40–6:00/km"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      >
+
+      <input
+        id="planTime"
+        placeholder="Planowany czas, np. 55 min"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      >
+
+      <input
+        id="planCalories"
+        type="number"
+        placeholder="Przypuszczalne kcal"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      >
+
+      <textarea
+        id="planNote"
+        rows="3"
+        placeholder="Notatka / szczegóły treningu"
+        style="
+          width:100%;
+          box-sizing:border-box;
+          padding:13px;
+          margin:5px 0;
+          border-radius:12px;
+          border:1px solid #ddd;
+        "
+      ></textarea>
+
+      <div
+        style="
+          display:flex;
+          gap:10px;
+          margin-top:10px;
+        "
+      >
+
+        <button
+          id="savePlanBtn"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#16794b;
+            color:white;
+            font-weight:700;
+          "
+        >
+          Zapisz plan
+        </button>
+
+        <button
+          id="cancelPlanBtn"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#ddd;
+            font-weight:700;
+          "
+        >
+          Anuluj
+        </button>
+
+      </div>
+
+    </div>
+
+    <div
+      id="calendarPlansList"
+      style="
+        margin-top:20px;
+      "
+    ></div>
+
+  `;
+
+  const history =
+    $("history");
+
+  if (
+    history &&
+    history.parentElement
+  ) {
+
+    history.parentElement
+      .before(section);
+
+  } else {
+
+    document.body.appendChild(
+      section
+    );
+
+  }
+
+  setupCalendarEvents();
+  renderCalendar();
+
+}
+
+
+/* =========================================================
+   KALENDARZ — EVENTY
+========================================================= */
+
+function setupCalendarEvents() {
+
+  const close =
+    $("closeCalendarBtn");
+
+  const prev =
+    $("calendarPrev");
+
+  const next =
+    $("calendarNext");
+
+  const save =
+    $("savePlanBtn");
+
+  const cancel =
+    $("cancelPlanBtn");
+
+  if (close) {
+
+    close.onclick = () => {
+
+      $("calendarSection")
+        .style.display =
+        "none";
+
+      window.scrollTo({
+        top:0,
+        behavior:"smooth"
+      });
+
+    };
+
+  }
+
+  if (prev) {
+
+    prev.onclick = () => {
+
+      calendarDate =
+        new Date(
+          calendarDate.getFullYear(),
+          calendarDate.getMonth() - 1,
+          1
+        );
+
+      renderCalendar();
+
+    };
+
+  }
+
+  if (next) {
+
+    next.onclick = () => {
+
+      calendarDate =
+        new Date(
+          calendarDate.getFullYear(),
+          calendarDate.getMonth() + 1,
+          1
+        );
+
+      renderCalendar();
+
+    };
+
+  }
+
+  if (cancel) {
+
+    cancel.onclick = () => {
+
+      closePlanEditor();
+
+    };
+
+  }
+
+  if (save) {
+
+    save.onclick =
+      saveTrainingPlan;
+
+  }
+
+}
+
+
+/* =========================================================
+   KALENDARZ — RENDER
+========================================================= */
+
+function renderCalendar() {
+
+  const grid =
+    $("calendarGrid");
+
+  if (!grid) return;
+
+  const year =
+    calendarDate.getFullYear();
+
+  const month =
+    calendarDate.getMonth();
+
+  const monthNames = [
+    "Styczeń",
+    "Luty",
+    "Marzec",
+    "Kwiecień",
+    "Maj",
+    "Czerwiec",
+    "Lipiec",
+    "Sierpień",
+    "Wrzesień",
+    "Październik",
+    "Listopad",
+    "Grudzień"
+  ];
+
+  if ($("calendarMonthTitle")) {
+
+    $("calendarMonthTitle")
+      .textContent =
+      `${monthNames[month]} ${year}`;
+
+  }
+
+  const weekdays = [
+    "Pn",
+    "Wt",
+    "Śr",
+    "Cz",
+    "Pt",
+    "Sb",
+    "Nd"
+  ];
+
+  let html =
+    weekdays.map(day =>
+      `
+        <div class="ft-calendar-weekday">
+          ${day}
+        </div>
+      `
+    ).join("");
+
+  const firstDay =
+    new Date(
+      year,
+      month,
+      1
+    ).getDay();
+
+  const mondayIndex =
+    firstDay === 0
+      ? 6
+      : firstDay - 1;
+
+  const daysInMonth =
+    new Date(
+      year,
+      month + 1,
+      0
+    ).getDate();
+
+  for (
+    let i = 0;
+    i < mondayIndex;
+    i++
+  ) {
+
+    html +=
+      `<div class="ft-calendar-empty"></div>`;
+
+  }
+
+  const today =
+    new Date();
+
+  for (
+    let day = 1;
+    day <= daysInMonth;
+    day++
+  ) {
+
+    const date =
+      `${year}-${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+
+    const plans =
+      trainingPlans.filter(
+        plan =>
+          plan.date === date
+      );
+
+    const isToday =
+      today.getFullYear() === year &&
+      today.getMonth() === month &&
+      today.getDate() === day;
+
+    html += `
+
+      <button
+        class="
+          ft-calendar-day
+          ${isToday ? "ft-calendar-today" : ""}
+        "
+        data-calendar-date="${date}"
+      >
+
+        <div class="ft-calendar-number">
+          ${day}
+        </div>
+
+        ${
+          plans
+            .map(plan =>
+              `
+                <div
+                  class="ft-plan-dot"
+                  title="${esc(plan.name)}"
+                >
+                  ${esc(
+                    plan.type ||
+                    plan.name ||
+                    "Trening"
+                  )}
+                </div>
+              `
+            )
+            .join("")
+        }
+
+      </button>
+
+    `;
+
+  }
+
+  grid.innerHTML =
+    html;
+
+  grid
+    .querySelectorAll(
+      "[data-calendar-date]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        openPlanEditor(
+          button.dataset
+            .calendarDate
+        );
+
+      };
+
+    });
+
+  renderCalendarPlansList();
+
+}
+
+
+/* =========================================================
+   KALENDARZ — EDYTOR
+========================================================= */
+
+let editingPlanId = null;
+let editingPlanDate = null;
+
+function openPlanEditor(date, planId = null) {
+
+  const editor =
+    $("calendarPlanEditor");
+
+  if (!editor) return;
+
+  editingPlanId =
+    planId;
+
+  editingPlanDate =
+    date;
+
+  let plan = null;
+
+  if (planId) {
+
+    plan =
+      trainingPlans.find(
+        item =>
+          String(item.id) ===
+          String(planId)
+      );
+
+  }
+
+  if ($("calendarEditorTitle")) {
+
+    $("calendarEditorTitle")
+      .textContent =
+      plan
+        ? "Edytuj trening"
+        : `Zaplanuj trening — ${date}`;
+
+  }
+
+  $("planName").value =
+    plan?.name || "";
+
+  $("planType").value =
+    plan?.type || "Easy";
+
+  $("planDistance").value =
+    plan?.distance || "";
+
+  $("planPace").value =
+    plan?.pace || "";
+
+  $("planTime").value =
+    plan?.time || "";
+
+  $("planCalories").value =
+    plan?.calories || "";
+
+  $("planNote").value =
+    plan?.note || "";
+
+  editor.style.display =
+    "block";
+
+  editor.scrollIntoView({
+    behavior:"smooth",
+    block:"center"
+  });
+
+}
+
+function closePlanEditor() {
+
+  editingPlanId =
+    null;
+
+  editingPlanDate =
+    null;
+
+  if ($("calendarPlanEditor")) {
+
+    $("calendarPlanEditor")
+      .style.display =
+      "none";
+
+  }
+
+}
+
+
+/* =========================================================
+   ZAPIS PLANU
+========================================================= */
+
+function saveTrainingPlan() {
+
+  if (!editingPlanDate) {
+
+    status(
+      "Nie wybrano dnia.",
+      true
+    );
+
+    return;
+
+  }
+
+  const plan = {
+
+    id:
+      editingPlanId ||
+      Date.now().toString(),
+
+    date:
+      editingPlanDate,
+
+    name:
+      $("planName").value.trim(),
+
+    type:
+      $("planType").value,
+
+    distance:
+      num(
+        $("planDistance").value
+      ),
+
+    pace:
+      $("planPace").value.trim(),
+
+    time:
+      $("planTime").value.trim(),
+
+    calories:
+      num(
+        $("planCalories").value
+      ),
+
+    note:
+      $("planNote").value.trim()
+
+  };
+
+  if (
+    !plan.name &&
+    !plan.type &&
+    !plan.distance
+  ) {
+
+    status(
+      "Wpisz nazwę, rodzaj albo dystans treningu.",
+      true
+    );
+
+    return;
+
+  }
+
+  if (editingPlanId) {
+
+    const index =
+      trainingPlans.findIndex(
+        item =>
+          String(item.id) ===
+          String(editingPlanId)
+      );
+
+    if (index !== -1) {
+
+      trainingPlans[index] =
+        plan;
+
+    }
+
+  } else {
+
+    trainingPlans.push(
+      plan
+    );
+
+  }
+
+  saveTrainingPlans();
+
+  closePlanEditor();
+
+  renderCalendar();
+
+  renderDateSelector();
+  renderHistory();
+
+  status(
+    "Plan treningowy zapisany."
+  );
+
+}
+
+
+/* =========================================================
+   LISTA PLANÓW POD KALENDARZEM
+========================================================= */
+
+function renderCalendarPlansList() {
+
+  const box =
+    $("calendarPlansList");
+
+  if (!box) return;
+
+  const year =
+    calendarDate.getFullYear();
+
+  const month =
+    calendarDate.getMonth();
+
+  const prefix =
+    `${year}-${String(month + 1).padStart(2,"0")}`;
+
+  const plans =
+    trainingPlans
+      .filter(
+        plan =>
+          plan.date.startsWith(prefix)
+      )
+      .sort(
+        (a,b) =>
+          a.date.localeCompare(
+            b.date
+          )
+      );
+
+  if (!plans.length) {
+
+    box.innerHTML = `
+      <div
+        style="
+          color:#777;
+          padding:10px 0;
+        "
+      >
+        Brak zaplanowanych treningów w tym miesiącu.
+      </div>
+    `;
+
+    return;
+
+  }
+
+  box.innerHTML = `
+
+    <h3>
+      Zaplanowane treningi
+    </h3>
+
+    ${plans.map(plan => {
+
+      return `
+        <div
+          style="
+            padding:15px;
+            margin-bottom:10px;
+            border-radius:17px;
+            background:#f5f6fa;
+          "
+        >
+
+          <div
+            style="
+              display:flex;
+              justify-content:space-between;
+              gap:10px;
+              align-items:flex-start;
+            "
+          >
+
+            <div>
+
+              <div
+                style="
+                  font-size:17px;
+                  font-weight:800;
+                "
+              >
+                ${esc(
+                  plan.name ||
+                  plan.type ||
+                  "Trening"
+                )}
+              </div>
+
+              <div
+                style="
+                  color:#666;
+                  margin-top:4px;
+                "
+              >
+                ${esc(plan.date)}
+                ·
+                ${esc(plan.type || "Inne")}
+              </div>
+
+            </div>
+
+            <button
+              data-edit-plan="${esc(plan.id)}"
+              style="
+                border:0;
+                border-radius:10px;
+                padding:8px 11px;
+                background:#e8eefc;
+                color:#2463eb;
+                font-weight:700;
+              "
+            >
+              Edytuj
+            </button>
+
+          </div>
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:1fr 1fr;
+              gap:8px;
+              margin-top:12px;
+            "
+          >
+
+            ${
+              plan.distance
+                ? `
+                  <div>
+                    <small>Dystans</small>
+                    <br>
+                    <b>
+                      ${fmt(plan.distance)} km
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              plan.pace
+                ? `
+                  <div>
+                    <small>Tempo</small>
+                    <br>
+                    <b>
+                      ${esc(plan.pace)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              plan.time
+                ? `
+                  <div>
+                    <small>Czas</small>
+                    <br>
+                    <b>
+                      ${esc(plan.time)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              plan.calories
+                ? `
+                  <div>
+                    <small>Planowane kcal</small>
+                    <br>
+                    <b>
+                      ${fmt(plan.calories)} kcal
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+          ${
+            plan.note
+              ? `
+                <div
+                  style="
+                    margin-top:12px;
+                    padding-top:10px;
+                    border-top:1px solid #ddd;
+                  "
+                >
+                  📝 ${esc(plan.note)}
+                </div>
+              `
+              : ""
+          }
+
+          <button
+            data-delete-plan="${esc(plan.id)}"
+            style="
+              margin-top:13px;
+              border:0;
+              border-radius:10px;
+              padding:9px 13px;
+              background:#fee4e2;
+              color:#b42318;
+              font-weight:700;
+            "
+          >
+            Usuń plan
+          </button>
+
+        </div>
+      `;
+
+    }).join("")}
+
+  `;
+
+  box
+    .querySelectorAll(
+      "[data-edit-plan]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        const plan =
+          trainingPlans.find(
+            item =>
+              String(item.id) ===
+              String(
+                button.dataset
+                  .editPlan
+              )
+          );
+
+        if (!plan) return;
+
+        openPlanEditor(
+          plan.date,
+          plan.id
+        );
+
+      };
+
+    });
+
+  box
+    .querySelectorAll(
+      "[data-delete-plan]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        if (
+          !confirm(
+            "Usunąć zaplanowany trening?"
+          )
+        ) {
+          return;
+        }
+
+        trainingPlans =
+          trainingPlans.filter(
+            plan =>
+              String(plan.id) !==
+              String(
+                button.dataset
+                  .deletePlan
+              )
+          );
+
+        saveTrainingPlans();
+
+        renderCalendar();
+        renderDateSelector();
+        renderHistory();
+
+        status(
+          "Plan treningowy usunięty."
+        );
+
+      };
+
+    });
+
+}
+
+
+/* =========================================================
+   PRZYCISK KALENDARZA
+========================================================= */
+
+function createCalendarButton() {
+
+  if ($("openCalendarBtn")) {
+    return;
+  }
+
+  const button =
+    document.createElement("button");
+
+  button.id =
+    "openCalendarBtn";
+
+  button.textContent =
+    "📅 Kalendarz treningów";
+
+  button.style.cssText = `
+    border:0;
+    border-radius:14px;
+    padding:12px 16px;
+    background:#2463eb;
+    color:white;
+    font-weight:700;
+    font-size:15px;
+    margin:10px 0;
+  `;
+
+  button.onclick = () => {
+
+    const section =
+      $("calendarSection");
+
+    if (!section) return;
+
+    section.style.display =
+      "block";
+
+    renderCalendar();
+
+    section.scrollIntoView({
+      behavior:"smooth",
+      block:"start"
+    });
+
+  };
+
+  const workout =
+    $("workoutSection");
+
+  if (
+    workout &&
+    workout.parentElement
+  ) {
+
+    workout.parentElement
+      .insertBefore(
+        button,
+        workout
+      );
+
+  } else {
+
+    document.body.appendChild(
+      button
+    );
+
+  }
 
 }
 
@@ -2015,6 +2848,7 @@ function renderHistory() {
       `<p>Brak zapisanych dni.</p>`;
 
     return;
+
   }
 
   box.innerHTML =
@@ -2027,6 +2861,12 @@ function renderHistory() {
         workouts.filter(
           workout =>
             workout.date === date
+        ).length;
+
+      const planCount =
+        trainingPlans.filter(
+          plan =>
+            plan.date === date
         ).length;
 
       return `
@@ -2043,7 +2883,6 @@ function renderHistory() {
 
           <button
             data-history-date="${esc(date)}"
-            type="button"
             style="
               border:0;
               background:none;
@@ -2055,14 +2894,22 @@ function renderHistory() {
           </button>
 
           <span>
-            ${fmt(
+
+            ${
               result.totals.kcal
-            )}
-            kcal
+                ? `${fmt(result.totals.kcal)} kcal`
+                : ""
+            }
 
             ${
               workoutCount
                 ? ` · 🏃 ${workoutCount}`
+                : ""
+            }
+
+            ${
+              planCount
+                ? ` · 📅 ${planCount}`
                 : ""
             }
 
@@ -2135,96 +2982,89 @@ function createReport(date) {
   });
 
   Object.entries(meals)
-    .forEach(([meal, products]) => {
-
-      text +=
-        `${meal.toUpperCase()}\n`;
-
-      products.forEach(product => {
+    .forEach(
+      ([meal, products]) => {
 
         text +=
-          `• ${
-            product[
-              "Produkty i potrawy"
-            ] ||
-            "Produkt"
-          }`;
+          `${meal.toUpperCase()}\n`;
 
-        if (
-          product["ilość (g)"]
-        ) {
+        products.forEach(product => {
+
+          text +=
+            `• ${
+              product[
+                "Produkty i potrawy"
+              ] || "Produkt"
+            }`;
+
+          if (
+            product["ilość (g)"]
+          ) {
+
+            text +=
+              ` — ${
+                product["ilość (g)"]
+              } g`;
+
+          }
 
           text +=
             ` — ${
-              product["ilość (g)"]
+              fmt(
+                num(
+                  product[
+                    "kalorie (kcal)"
+                  ]
+                )
+              )
+            } kcal`;
+
+          text +=
+            ` | B ${
+              fmt(
+                num(
+                  product[
+                    "Białka (g)"
+                  ]
+                )
+              )
             } g`;
 
-        }
-
-        text +=
-          ` — ${
-            fmt(
-              num(
-                product[
-                  "kalorie (kcal)"
-                ]
+          text +=
+            ` | W ${
+              fmt(
+                num(
+                  product[
+                    "Węglowodany (g)"
+                  ]
+                )
               )
-            )
-          } kcal`;
+            } g`;
 
-        text +=
-          ` | B ${
-            fmt(
-              num(
-                product[
-                  "Białka (g)"
-                ]
+          text +=
+            ` | T ${
+              fmt(
+                num(
+                  product[
+                    "Tłuszcze (g)"
+                  ]
+                )
               )
-            )
-          } g`;
+            } g\n`;
 
-        text +=
-          ` | W ${
-            fmt(
-              num(
-                product[
-                  "Węglowodany (g)"
-                ]
-              )
-            )
-          } g`;
+        });
 
-        text +=
-          ` | T ${
-            fmt(
-              num(
-                product[
-                  "Tłuszcze (g)"
-                ]
-              )
-            )
-          } g\n`;
+        text += "\n";
 
-      });
-
-      text += "\n";
-
-    });
+      }
+    );
 
   text +=
     `PODSUMOWANIE\n` +
-    `Kalorie: ${fmt(
-      totals.kcal
-    )} kcal\n` +
-    `Białko: ${fmt(
-      totals.protein
-    )} g\n` +
-    `Węglowodany: ${fmt(
-      totals.carbs
-    )} g\n` +
-    `Tłuszcz: ${fmt(
-      totals.fat
-    )} g\n\n`;
+    `Kalorie: ${fmt(totals.kcal)} kcal\n` +
+    `Białko: ${fmt(totals.protein)} g\n` +
+    `Węglowodany: ${fmt(totals.carbs)} g\n` +
+    `Tłuszcz: ${fmt(totals.fat)} g\n\n`;
 
   text +=
     `TRENINGI\n`;
@@ -2242,64 +3082,44 @@ function createReport(date) {
 
   } else {
 
-    dayWorkouts.forEach(workout => {
-
-      text +=
-        `• ${
-          workout.type ||
-          "Trening"
-        }`;
-
-      if (workout.distance) {
-        text +=
-          ` | ${
-            fmt(
-              workout.distance
-            )
-          } km`;
-      }
-
-      if (workout.time) {
-        text +=
-          ` | ${workout.time}`;
-      }
-
-      if (workout.pace) {
-        text +=
-          ` | ${workout.pace}`;
-      }
-
-      if (workout.hr) {
-        text +=
-          ` | HR ${
-            fmt(workout.hr)
-          }`;
-      }
-
-      if (workout.calories) {
-        text +=
-          ` | ${
-            fmt(
-              workout.calories
-            )
-          } kcal`;
-      }
-
-      if (
-        workout.garminScreens &&
-        workout.garminScreens.length
-      ) {
+    dayWorkouts.forEach(
+      workout => {
 
         text +=
-          ` | Screeny Garmin: ${
-            workout.garminScreens.length
+          `• ${
+            workout.type ||
+            "Trening"
           }`;
 
+        if (workout.distance) {
+          text +=
+            ` | ${fmt(workout.distance)} km`;
+        }
+
+        if (workout.time) {
+          text +=
+            ` | ${workout.time}`;
+        }
+
+        if (workout.pace) {
+          text +=
+            ` | ${workout.pace}`;
+        }
+
+        if (workout.hr) {
+          text +=
+            ` | HR ${fmt(workout.hr)}`;
+        }
+
+        if (workout.calories) {
+          text +=
+            ` | ${fmt(workout.calories)} kcal`;
+        }
+
+        text += "\n";
+
       }
-
-      text += "\n";
-
-    });
+    );
 
   }
 
@@ -2320,9 +3140,7 @@ function createReport(date) {
       if (total) {
 
         text +=
-          `${label}: ${fmt(
-            total
-          )} ${unit}\n`;
+          `${label}: ${fmt(total)} ${unit}\n`;
 
       }
 
@@ -2335,7 +3153,7 @@ function createReport(date) {
 
 
 /* =========================================================
-   KOPIOWANIE
+   KOPIOWANIE RAPORTU
 ========================================================= */
 
 async function copyReport() {
@@ -2348,6 +3166,7 @@ async function copyReport() {
     );
 
     return;
+
   }
 
   const text =
@@ -2451,8 +3270,9 @@ function setupImport() {
           [
             ...new Set(
               imported
-                .map(row =>
-                  row["Data"]
+                .map(
+                  row =>
+                    row["Data"]
                 )
                 .filter(Boolean)
             )
@@ -2461,8 +3281,9 @@ function setupImport() {
         const existingDates =
           new Set(
             foodRows
-              .map(row =>
-                row["Data"]
+              .map(
+                row =>
+                  row["Data"]
               )
               .filter(Boolean)
           );
@@ -2470,7 +3291,9 @@ function setupImport() {
         const conflicts =
           importedDates.filter(
             date =>
-              existingDates.has(date)
+              existingDates.has(
+                date
+              )
           );
 
         if (conflicts.length) {
@@ -2623,6 +3446,10 @@ document.addEventListener(
 
     createWorkoutSection();
 
+    createCalendarSection();
+
+    createCalendarButton();
+
     setupImport();
 
     setupEvents();
@@ -2630,13 +3457,18 @@ document.addEventListener(
     renderAll();
 
     console.log(
-      "FuelTrack AI — Fitatu:",
+      "FuelTrack AI: Fitatu:",
       foodRows.length
     );
 
     console.log(
-      "FuelTrack AI — treningi:",
+      "FuelTrack AI: treningów:",
       workouts.length
+    );
+
+    console.log(
+      "FuelTrack AI: planów treningowych:",
+      trainingPlans.length
     );
 
   }
