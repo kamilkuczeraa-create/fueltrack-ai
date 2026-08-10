@@ -1,129 +1,998 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f4f7">
   <title>FuelTrack AI</title>
 
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: #f3f4f7;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f4f7;
+      color: #111827;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+        "SF Pro Text", Inter, Arial, sans-serif;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 28px 20px 80px;
+    }
+
+    .brand {
+      color: #7b8190;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 8vw, 52px);
+      line-height: 1;
+      letter-spacing: -1.8px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.7px;
+    }
+
+    h3 {
+      margin: 0;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 15px;
+      margin-bottom: 28px;
+    }
+
+    .primary-btn {
+      border: 0;
+      border-radius: 18px;
+      padding: 17px 20px;
+      background: #3565e8;
+      color: white;
+      font-weight: 800;
+      box-shadow: 0 8px 20px rgba(53,101,232,.2);
+    }
+
+    .secondary-btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      background: #e8eaf0;
+      color: #151923;
+      font-weight: 750;
+    }
+
+    .back-btn {
+      border: 0;
+      border-radius: 14px;
+      padding: 11px 15px;
+      background: #e7e9ef;
+      font-weight: 750;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 28px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.045);
+    }
+
+    .dark-card {
+      background: #111624;
+      color: white;
+    }
+
+    .summary-title {
+      color: #858b98;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .summary-date {
+      font-size: 25px;
+      font-weight: 850;
+      margin-bottom: 20px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .summary-item {
+      background: #242a3a;
+      border-radius: 20px;
+      padding: 17px;
+    }
+
+    .summary-label {
+      color: #aeb4c3;
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .summary-value {
+      font-size: 24px;
+      font-weight: 850;
+    }
+
+    .nav-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .nav-card {
+      border: 0;
+      text-align: left;
+      background: white;
+      border-radius: 26px;
+      padding: 25px;
+      min-height: 145px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.045);
+    }
+
+    .nav-icon {
+      font-size: 34px;
+      margin-bottom: 15px;
+    }
+
+    .nav-title {
+      font-size: 23px;
+      font-weight: 850;
+      margin-bottom: 5px;
+    }
+
+    .nav-description {
+      color: #777e8d;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .day-label {
+      color: #9ba1ae;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+
+    .day-date {
+      font-size: 29px;
+      font-weight: 850;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid #dfe2e8;
+      border-radius: 14px;
+      padding: 13px 14px;
+      background: white;
+      color: #151923;
+      outline: none;
+    }
+
+    select:focus,
+    input:focus,
+    textarea:focus {
+      border-color: #3565e8;
+    }
+
+    .macro-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .macro-card {
+      background: #242a3a;
+      border-radius: 21px;
+      padding: 18px;
+    }
+
+    .macro-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .macro-name {
+      color: #c5cad5;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .macro-number {
+      font-size: 22px;
+      font-weight: 850;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 9px;
+      background: #3a4050;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      border-radius: 99px;
+      background: #4e7cff;
+      transition: width .25s ease;
+    }
+
+    .meal {
+      padding: 18px 0;
+      border-bottom: 1px solid #eceef2;
+    }
+
+    .meal:last-child {
+      border-bottom: 0;
+    }
+
+    .meal h3 {
+      margin-bottom: 12px;
+    }
+
+    .product {
+      padding: 9px 0;
+      border-bottom: 1px solid #f0f1f4;
+    }
+
+    .product:last-child {
+      border-bottom: 0;
+    }
+
+    .product-name {
+      font-weight: 750;
+      margin-bottom: 4px;
+    }
+
+    .product-info {
+      color: #747b89;
+      font-size: 14px;
+    }
+
+    .collapse-header {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0;
+      text-align: left;
+      font-weight: 850;
+      font-size: 23px;
+    }
+
+    .collapse-arrow {
+      font-size: 20px;
+      transition: transform .2s ease;
+    }
+
+    .collapse-content {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .collapse-content.open {
+      display: block;
+    }
+
+    .micro-row,
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid #eceef2;
+    }
+
+    .history-row:last-child,
+    .micro-row:last-child {
+      border-bottom: 0;
+    }
+
+    .history-date {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .form-full {
+      grid-column: 1 / -1;
+    }
+
+    .workout-card {
+      background: #f5f6fa;
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+
+    .workout-title {
+      font-size: 20px;
+      font-weight: 850;
+      margin-bottom: 14px;
+    }
+
+    .workout-data {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .workout-data small {
+      color: #777e8d;
+    }
+
+    .workout-data b {
+      font-size: 16px;
+    }
+
+    .calendar {
+      overflow-x: auto;
+    }
+
+    .calendar-head,
+    .calendar-row {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(75px, 1fr));
+      min-width: 560px;
+    }
+
+    .calendar-head div {
+      padding: 8px;
+      text-align: center;
+      color: #7b8190;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .calendar-day {
+      min-height: 105px;
+      border: 1px solid #eceef2;
+      padding: 7px;
+      background: white;
+    }
+
+    .calendar-number {
+      font-weight: 850;
+      margin-bottom: 6px;
+    }
+
+    .calendar-event {
+      border-radius: 9px;
+      padding: 5px 6px;
+      margin-top: 4px;
+      background: #e8edff;
+      color: #294da9;
+      font-size: 11px;
+      font-weight: 750;
+      overflow: hidden;
+    }
+
+    .empty {
+      color: #858b98;
+      padding: 10px 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .screens-preview {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .screens-preview img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 12px;
+    }
+
+    .status {
+      position: fixed;
+      left: 20px;
+      right: 20px;
+      bottom: 20px;
+      z-index: 99999;
+      padding: 15px 18px;
+      border-radius: 15px;
+      background: #16794b;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0,0,0,.2);
+    }
+
+    @media (max-width: 650px) {
+      .app {
+        padding: 22px 16px 70px;
+      }
+
+      .topbar {
+        align-items: center;
+      }
+
+      .topbar .primary-btn {
+        padding: 14px 15px;
+        font-size: 14px;
+      }
+
+      .nav-grid,
+      .macro-grid,
+      .summary-grid,
+      .form-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .nav-card {
+        min-height: 135px;
+        padding: 20px;
+      }
+
+      .nav-title {
+        font-size: 20px;
+      }
+    }
+
+    @media (max-width: 430px) {
+      .nav-grid {
+        gap: 10px;
+      }
+
+      .nav-card {
+        padding: 17px;
+      }
+
+      .nav-icon {
+        font-size: 28px;
+      }
+
+      .nav-title {
+        font-size: 18px;
+      }
+
+      .summary-item {
+        padding: 14px;
+      }
+
+      .summary-value {
+        font-size: 20px;
+      }
+    }
+  </style>
 </head>
 
 <body>
-
   <main class="app">
 
-    <header class="topbar">
-      <div>
-        <div class="eyebrow">FUELTRACK AI</div>
-        <h1>Twoje żywienie</h1>
-      </div>
+    <!-- =========================
+         STRONA GŁÓWNA
+    ========================== -->
+    <section id="homePage">
 
-      <button id="importBtn" class="primary small">
-        ＋ Import Fitatu
+      <header class="topbar">
+        <div>
+          <div class="brand">FUELTRACK AI</div>
+          <h1>Twój dzień</h1>
+        </div>
+      </header>
+
+      <section class="card dark-card">
+        <div class="summary-title">Ostatni zaraportowany dzień</div>
+        <div id="homeDate" class="summary-date">Brak danych</div>
+
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="summary-label">Przyjęte kalorie</div>
+            <div id="homeCalories" class="summary-value">0 kcal</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Spalone w treningu</div>
+            <div id="homeBurned" class="summary-value">0 kcal</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Białko</div>
+            <div id="homeProtein" class="summary-value">0 g</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Węglowodany</div>
+            <div id="homeCarbs" class="summary-value">0 g</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Tłuszcz</div>
+            <div id="homeFat" class="summary-value">0 g</div>
+          </div>
+
+          <div class="summary-item">
+            <div class="summary-label">Różnica względem celu</div>
+            <div id="homeBalance" class="summary-value">0 kcal</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="nav-grid">
+
+        <button class="nav-card" id="goNutrition">
+          <div class="nav-icon">🍽️</div>
+          <div class="nav-title">Żywienie</div>
+          <div class="nav-description">
+            Fitatu, posiłki, makro, mikro i historia.
+          </div>
+        </button>
+
+        <button class="nav-card" id="goTraining">
+          <div class="nav-icon">🏃</div>
+          <div class="nav-title">Treningi</div>
+          <div class="nav-description">
+            Kalendarz, planowanie i zapis wykonanych treningów.
+          </div>
+        </button>
+
+      </section>
+
+    </section>
+
+
+    <!-- =========================
+         STRONA ŻYWIENIA
+    ========================== -->
+    <section id="nutritionPage" class="hidden">
+
+      <button class="back-btn" id="backHomeNutrition">
+        ← Strona główna
       </button>
 
-      <input
-        id="fileInput"
-        type="file"
-        accept=".csv,text/csv"
-        hidden
-      >
-    </header>
-
-    <section id="status" class="status hidden"></section>
-
-    <section class="hero card">
-
-      <div class="hero-title">
-
+      <header class="topbar">
         <div>
-          <div class="muted">Wybrany dzień</div>
-          <h2 id="selectedDateLabel">Brak danych</h2>
+          <div class="brand">FUELTRACK AI</div>
+          <h1>Żywienie</h1>
         </div>
 
-        <select id="dateSelect" aria-label="Wybierz dzień"></select>
-
-      </div>
-
-      <div class="stats">
-
-        <div>
-          <span>🔥</span>
-          <b id="kcal">0</b>
-          <small>kcal</small>
-        </div>
-
-        <div>
-          <span>🥩</span>
-          <b id="protein">0</b>
-          <small>białka</small>
-        </div>
-
-        <div>
-          <span>🍚</span>
-          <b id="carbs">0</b>
-          <small>węglowodanów</small>
-        </div>
-
-        <div>
-          <span>🥑</span>
-          <b id="fat">0</b>
-          <small>tłuszczu</small>
-        </div>
-
-      </div>
-
-    </section>
-
-    <section class="card">
-
-      <div class="section-head">
-        <h2>Posiłki</h2>
-
-        <button id="copyBtn" class="secondary">
-          📋 Kopiuj pełny raport
+        <button class="primary-btn" id="importBtn">
+          + Import Fitatu
         </button>
-      </div>
 
-      <div id="meals"></div>
+        <input
+          id="fileInput"
+          type="file"
+          accept=".csv,text/csv"
+          class="hidden"
+        >
+      </header>
+
+
+      <!-- DZIEŃ + BILANS -->
+      <section class="card dark-card">
+
+        <div class="day-label">Wybrany dzień</div>
+        <div id="selectedDateLabel" class="day-date">
+          Brak danych
+        </div>
+
+        <select id="dateSelect" style="margin-top:18px;"></select>
+
+        <div class="macro-grid">
+
+          <div class="macro-card">
+            <div class="macro-top">
+              <span class="macro-name">🔥 Kalorie</span>
+              <span id="kcal" class="macro-number">0</span>
+            </div>
+            <div class="progress-track">
+              <div id="kcalBar" class="progress-bar"></div>
+            </div>
+          </div>
+
+          <div class="macro-card">
+            <div class="macro-top">
+              <span class="macro-name">🥩 Białko</span>
+              <span id="protein" class="macro-number">0</span>
+            </div>
+            <div class="progress-track">
+              <div id="proteinBar" class="progress-bar"></div>
+            </div>
+          </div>
+
+          <div class="macro-card">
+            <div class="macro-top">
+              <span class="macro-name">🍚 Węglowodany</span>
+              <span id="carbs" class="macro-number">0</span>
+            </div>
+            <div class="progress-track">
+              <div id="carbsBar" class="progress-bar"></div>
+            </div>
+          </div>
+
+          <div class="macro-card">
+            <div class="macro-top">
+              <span class="macro-name">🥑 Tłuszcz</span>
+              <span id="fat" class="macro-number">0</span>
+            </div>
+            <div class="progress-track">
+              <div id="fatBar" class="progress-bar"></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+
+      <!-- POSIŁKI -->
+      <section class="card">
+
+        <div class="section-header">
+          <h2>Posiłki</h2>
+
+          <button class="secondary-btn" id="copyBtn">
+            📋 Kopiuj pełny raport
+          </button>
+        </div>
+
+        <div id="meals"></div>
+
+      </section>
+
+
+      <!-- MAKRO I MIKRO -->
+      <section class="card">
+
+        <button class="collapse-header" data-target="macroMicroContent">
+          <span>Makro i mikro</span>
+          <span class="collapse-arrow">⌄</span>
+        </button>
+
+        <div id="macroMicroContent" class="collapse-content">
+
+          <h3 style="margin-bottom:12px;">Makro</h3>
+
+          <div id="macroDetails"></div>
+
+          <h3 style="margin:25px 0 12px;">Mikro</h3>
+
+          <div id="micros"></div>
+
+        </div>
+
+      </section>
+
+
+      <!-- HISTORIA -->
+      <section class="card">
+
+        <button class="collapse-header" data-target="historyContent">
+          <span>
+            Historia
+            <span
+              id="dayCount"
+              style="
+                display:inline-block;
+                margin-left:8px;
+                padding:7px 12px;
+                border-radius:999px;
+                background:#eef0ff;
+                color:#303b9f;
+                font-size:13px;
+              "
+            >
+              0 dni
+            </span>
+          </span>
+
+          <span class="collapse-arrow">⌄</span>
+        </button>
+
+        <div id="historyContent" class="collapse-content">
+          <div id="history"></div>
+        </div>
+
+      </section>
 
     </section>
 
-    <section class="card">
 
-      <div class="section-head">
-        <h2>Makro i mikro</h2>
-      </div>
+    <!-- =========================
+         STRONA TRENINGÓW
+    ========================== -->
+    <section id="trainingPage" class="hidden">
 
-      <div id="micros" class="micro-grid"></div>
+      <button class="back-btn" id="backHomeTraining">
+        ← Strona główna
+      </button>
+
+      <header style="margin-bottom:25px;">
+        <div class="brand">FUELTRACK AI</div>
+        <h1>Treningi</h1>
+      </header>
+
+
+      <!-- KALENDARZ -->
+      <section class="card">
+
+        <div class="section-header">
+          <h2>Kalendarz treningów</h2>
+
+          <div style="display:flex;gap:8px;">
+            <button class="secondary-btn" id="prevMonth">←</button>
+            <button class="secondary-btn" id="nextMonth">→</button>
+          </div>
+        </div>
+
+        <div
+          id="calendarTitle"
+          style="
+            font-size:20px;
+            font-weight:850;
+            margin-bottom:12px;
+          "
+        ></div>
+
+        <div class="calendar">
+          <div class="calendar-head">
+            <div>Pon</div>
+            <div>Wt</div>
+            <div>Śr</div>
+            <div>Czw</div>
+            <div>Pt</div>
+            <div>Sob</div>
+            <div>Nd</div>
+          </div>
+
+          <div id="calendarGrid" class="calendar-row"></div>
+        </div>
+
+      </section>
+
+
+      <!-- PLANOWANIE -->
+      <section class="card">
+
+        <div class="section-header">
+          <h2>Planowanie treningu</h2>
+        </div>
+
+        <div class="form-grid">
+
+          <input id="planDate" type="date">
+
+          <select id="planType">
+            <option value="Easy">Easy</option>
+            <option value="Long">Long</option>
+            <option value="Interwały">Interwały</option>
+            <option value="Podbiegi">Podbiegi</option>
+            <option value="Siłownia">Siłownia</option>
+            <option value="Regeneracja">Regeneracja</option>
+            <option value="Inny">Inny</option>
+          </select>
+
+          <input
+            id="planName"
+            placeholder="Nazwa treningu"
+            class="form-full"
+          >
+
+          <input
+            id="planCalories"
+            type="number"
+            placeholder="Przypuszczalne spalone kcal"
+          >
+
+          <input
+            id="planDistance"
+            type="number"
+            step="0.1"
+            placeholder="Planowany dystans km"
+          >
+
+          <textarea
+            id="planNote"
+            rows="3"
+            placeholder="Opis / założenia treningu"
+            class="form-full"
+          ></textarea>
+
+          <button
+            id="savePlanBtn"
+            class="primary-btn form-full"
+          >
+            + Dodaj do kalendarza
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- WPROWADZANIE WYKONANEGO TRENINGU -->
+      <section class="card">
+
+        <div class="section-header">
+          <h2>Wykonane treningi</h2>
+
+          <button class="secondary-btn" id="addWorkoutBtn">
+            + Dodaj trening
+          </button>
+        </div>
+
+        <div id="workoutForm" class="hidden">
+
+          <div class="form-grid">
+
+            <input id="wDate" type="date">
+
+            <input
+              id="wType"
+              placeholder="Rodzaj, np. Easy Run"
+            >
+
+            <input
+              id="wDistance"
+              type="number"
+              step="0.01"
+              placeholder="Dystans km"
+            >
+
+            <input
+              id="wTime"
+              placeholder="Czas, np. 52:34"
+            >
+
+            <input
+              id="wPace"
+              placeholder="Tempo, np. 5:18/km"
+            >
+
+            <input
+              id="wHr"
+              type="number"
+              placeholder="Średnie HR"
+            >
+
+            <input
+              id="wMaxHr"
+              type="number"
+              placeholder="Maksymalne HR"
+            >
+
+            <input
+              id="wCalories"
+              type="number"
+              placeholder="Spalone kcal"
+            >
+
+            <input
+              id="wCadence"
+              type="number"
+              placeholder="Kadencja"
+            >
+
+            <input
+              id="wElevation"
+              type="number"
+              placeholder="Przewyższenie m"
+            >
+
+            <textarea
+              id="wNote"
+              rows="3"
+              placeholder="Odczucia / notatka"
+              class="form-full"
+            ></textarea>
+
+            <div class="form-full">
+              <label style="font-weight:750;">
+                Screeny z Garmina — maks. 4
+              </label>
+
+              <input
+                id="wScreens"
+                type="file"
+                accept="image/*"
+                multiple
+                style="margin-top:8px;"
+              >
+
+              <div id="screensPreview" class="screens-preview"></div>
+            </div>
+
+            <button
+              id="saveWorkoutBtn"
+              class="primary-btn"
+            >
+              Zapisz trening
+            </button>
+
+            <button
+              id="cancelWorkoutBtn"
+              class="secondary-btn"
+            >
+              Anuluj
+            </button>
+
+          </div>
+
+        </div>
+
+        <div id="workouts" style="margin-top:18px;"></div>
+
+      </section>
 
     </section>
-
-    <section class="card">
-
-      <div class="section-head">
-        <h2>Historia</h2>
-
-        <span id="dayCount" class="pill">
-          0 dni
-        </span>
-      </div>
-
-      <div id="history"></div>
-
-    </section>
-
-    <footer>
-      FuelTrack AI v0.2 · dane zapisują się lokalnie na tym urządzeniu
-    </footer>
 
   </main>
 
-  <script src="app.js"></script>
+  <div id="status" class="status hidden"></div>
 
+  <script src="App.js"></script>
 </body>
 </html>
