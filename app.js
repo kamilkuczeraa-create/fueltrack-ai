@@ -1,10 +1,26 @@
-import React, { useEffect, useState } from "react";
-import TrainingPage from "./TrainingPage";
+/* =========================================================
+   FUELTRACK AI
+   v0.7
+   ---------------------------------------------------------
+   - Fitatu CSV
+   - trwałe dane
+   - odzyskiwanie starszych baz
+   - bilans dnia
+   - makro i mikro — sekcja zwijana
+   - historia — sekcja zwijana
+   - treningi
+   - planowanie treningów
+   - raport tekstowy
+   - kompatybilność ze starszymi wersjami
+========================================================= */
 
 const FOOD_KEY = "fueltrack_food_v04";
 const WORKOUT_KEY = "fueltrack_workouts_v04";
+const GOALS_KEY = "fueltrack_goals_v04";
+const PLAN_KEY = "fueltrack_training_plan_v01";
 
-const OLD_KEYS = [
+const OLD_FOOD_KEYS = [
+  "fueltrack_food_v04",
   "fueltrack_fitatu_v03",
   "fueltrack_fitatu_v02",
   "fueltrack_fitatu",
@@ -13,6 +29,20 @@ const OLD_KEYS = [
   "fueltrack_data",
   "fueltrack_rows"
 ];
+
+const OLD_WORKOUT_KEYS = [
+  "fueltrack_workouts_v04",
+  "fueltrack_workouts_v03",
+  "fueltrack_workouts_v02",
+  "fueltrack_workouts"
+];
+
+const DEFAULT_GOALS = {
+  kcal: 2200,
+  protein: 180,
+  carbs: 200,
+  fat: 70
+};
 
 const MICRO_COLUMNS = [
   ["Błonnik (g)", "Błonnik", "g"],
@@ -45,15 +75,26 @@ const MICRO_COLUMNS = [
   ["Nasycone (g)", "Kwasy nasycone", "g"]
 ];
 
-const GOALS = {
-  kcal: 2200,
-  protein: 180,
-  carbs: 200,
-  fat: 70
-};
+let foodRows = [];
+let workouts = [];
+let trainingPlan = [];
+let selectedDate = "";
+
+
+/* =========================================================
+   POMOCNICZE
+========================================================= */
+
+function $(id) {
+  return document.getElementById(id);
+}
 
 function num(value) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return 0;
   }
 
@@ -72,6 +113,15 @@ function fmt(value) {
   });
 }
 
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function safeParse(value) {
   try {
     return JSON.parse(value);
@@ -80,15 +130,90 @@ function safeParse(value) {
   }
 }
 
+function status(text, error = false) {
+  let box = $("status");
+
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "status";
+
+    box.style.cssText = `
+      position:fixed;
+      left:20px;
+      right:20px;
+      bottom:20px;
+      z-index:99999;
+      padding:15px 18px;
+      border-radius:15px;
+      background:#222;
+      color:white;
+      font-weight:600;
+      text-align:center;
+      box-shadow:0 8px 30px rgba(0,0,0,.2);
+    `;
+
+    document.body.appendChild(box);
+  }
+
+  box.style.background =
+    error ? "#b42318" : "#16794b";
+
+  box.textContent = text;
+  box.style.display = "block";
+
+  clearTimeout(box._timer);
+
+  box._timer = setTimeout(() => {
+    box.style.display = "none";
+  }, 4000);
+}
+
+
+/* =========================================================
+   ROZPOZNANIE DANYCH FITATU
+========================================================= */
+
+function looksLikeFitatu(value) {
+
+  if (!Array.isArray(value) || !value.length) {
+    return false;
+  }
+
+  const sample = value[0];
+
+  if (
+    !sample ||
+    typeof sample !== "object"
+  ) {
+    return false;
+  }
+
+  return (
+    "Data" in sample ||
+    "data" in sample
+  );
+}
+
 function normaliseRows(rows) {
-  if (!Array.isArray(rows)) return [];
+
+  if (!Array.isArray(rows)) {
+    return [];
+  }
 
   return rows
-    .filter(row => row && typeof row === "object")
+    .filter(
+      row =>
+        row &&
+        typeof row === "object"
+    )
     .map(row => {
+
       const copy = { ...row };
 
-      if (!copy["Data"] && copy.data) {
+      if (
+        !copy["Data"] &&
+        copy.data
+      ) {
         copy["Data"] = copy.data;
       }
 
@@ -96,101 +221,297 @@ function normaliseRows(rows) {
     });
 }
 
-function looksLikeFitatu(array) {
-  if (!Array.isArray(array) || !array.length) {
-    return false;
-  }
 
-  const sample = array[0];
+/* =========================================================
+   ODZYSKIWANIE DANYCH
+========================================================= */
 
-  return (
-    sample &&
-    typeof sample === "object" &&
-    ("Data" in sample || "data" in sample)
-  );
-}
-
-function recoverOldFoodData() {
-  for (const key of OLD_KEYS) {
-    const raw = localStorage.getItem(key);
-
-    if (!raw) continue;
-
-    const parsed = safeParse(raw);
-
-    if (looksLikeFitatu(parsed)) {
-      return normaliseRows(parsed);
-    }
-
-    if (
-      parsed &&
-      Array.isArray(parsed.rows) &&
-      looksLikeFitatu(parsed.rows)
-    ) {
-      return normaliseRows(parsed.rows);
-    }
-  }
+function recoverFoodData() {
 
   const candidates = [];
 
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
+
+    const key =
+      localStorage.key(i);
 
     if (!key) continue;
 
-    const raw = localStorage.getItem(key);
+    const raw =
+      localStorage.getItem(key);
 
     if (!raw) continue;
 
-    const parsed = safeParse(raw);
+    const parsed =
+      safeParse(raw);
 
-    if (looksLikeFitatu(parsed)) {
-      candidates.push(normaliseRows(parsed));
+    if (
+      looksLikeFitatu(parsed)
+    ) {
+
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(parsed)
+      });
+
     }
 
     if (
       parsed &&
+      typeof parsed === "object" &&
       Array.isArray(parsed.rows) &&
       looksLikeFitatu(parsed.rows)
     ) {
-      candidates.push(normaliseRows(parsed.rows));
+
+      candidates.push({
+        key,
+        rows:
+          normaliseRows(
+            parsed.rows
+          )
+      });
+
     }
+
   }
 
   candidates.sort(
-    (a, b) => b.length - a.length
+    (a, b) =>
+      b.rows.length -
+      a.rows.length
   );
 
-  return candidates[0] || [];
+  return candidates.length
+    ? candidates[0].rows
+    : [];
 }
 
+function recoverWorkouts() {
+
+  const candidates = [];
+
+  for (
+    let i = 0;
+    i < localStorage.length;
+    i++
+  ) {
+
+    const key =
+      localStorage.key(i);
+
+    if (!key) continue;
+
+    const raw =
+      localStorage.getItem(key);
+
+    if (!raw) continue;
+
+    const parsed =
+      safeParse(raw);
+
+    if (
+      Array.isArray(parsed) &&
+      parsed.some(
+        item =>
+          item &&
+          typeof item === "object" &&
+          "date" in item
+      )
+    ) {
+
+      candidates.push(
+        parsed
+      );
+
+    }
+
+  }
+
+  candidates.sort(
+    (a, b) =>
+      b.length - a.length
+  );
+
+  return candidates.length
+    ? candidates[0]
+    : [];
+}
+
+
+/* =========================================================
+   STORAGE
+========================================================= */
+
+function saveFood() {
+
+  localStorage.setItem(
+    FOOD_KEY,
+    JSON.stringify(foodRows)
+  );
+}
+
+function saveWorkouts() {
+
+  localStorage.setItem(
+    WORKOUT_KEY,
+    JSON.stringify(workouts)
+  );
+}
+
+function saveTrainingPlan() {
+
+  localStorage.setItem(
+    PLAN_KEY,
+    JSON.stringify(trainingPlan)
+  );
+}
+
+function loadAll() {
+
+  /* ---------- FITATU ---------- */
+
+  let savedFood =
+    safeParse(
+      localStorage.getItem(
+        FOOD_KEY
+      )
+    );
+
+  if (
+    looksLikeFitatu(savedFood)
+  ) {
+
+    foodRows =
+      normaliseRows(
+        savedFood
+      );
+
+  } else {
+
+    foodRows =
+      recoverFoodData();
+
+    if (foodRows.length) {
+      saveFood();
+    }
+
+  }
+
+
+  /* ---------- TRENINGI ---------- */
+
+  let savedWorkouts =
+    safeParse(
+      localStorage.getItem(
+        WORKOUT_KEY
+      )
+    );
+
+  if (
+    Array.isArray(savedWorkouts)
+  ) {
+
+    workouts =
+      savedWorkouts;
+
+  } else {
+
+    workouts =
+      recoverWorkouts();
+
+    if (workouts.length) {
+      saveWorkouts();
+    }
+
+  }
+
+
+  /* ---------- PLAN ---------- */
+
+  const savedPlan =
+    safeParse(
+      localStorage.getItem(
+        PLAN_KEY
+      )
+    );
+
+  trainingPlan =
+    Array.isArray(savedPlan)
+      ? savedPlan
+      : [];
+
+}
+
+
+/* =========================================================
+   CSV
+========================================================= */
+
 function parseCSV(text) {
-  text = text.replace(/^\uFEFF/, "");
+
+  text =
+    text.replace(
+      /^\uFEFF/,
+      ""
+    );
 
   const rows = [];
+
   let row = [];
   let cell = "";
   let quoted = false;
 
-  for (let i = 0; i < text.length; i++) {
+  for (
+    let i = 0;
+    i < text.length;
+    i++
+  ) {
+
     const char = text[i];
     const next = text[i + 1];
 
     if (char === '"') {
-      if (quoted && next === '"') {
+
+      if (
+        quoted &&
+        next === '"'
+      ) {
+
         cell += '"';
         i++;
+
       } else {
-        quoted = !quoted;
+
+        quoted =
+          !quoted;
+
       }
-    } else if (char === "," && !quoted) {
-      row.push(cell);
-      cell = "";
+
     } else if (
-      (char === "\n" || char === "\r") &&
+      char === "," &&
       !quoted
     ) {
-      if (char === "\r" && next === "\n") {
+
+      row.push(cell);
+      cell = "";
+
+    } else if (
+      (
+        char === "\n" ||
+        char === "\r"
+      ) &&
+      !quoted
+    ) {
+
+      if (
+        char === "\r" &&
+        next === "\n"
+      ) {
         i++;
       }
 
@@ -199,62 +520,104 @@ function parseCSV(text) {
 
       if (
         row.some(
-          value => value.trim() !== ""
+          value =>
+            value.trim() !== ""
         )
       ) {
+
         rows.push(row);
+
       }
 
       row = [];
+
     } else {
+
       cell += char;
+
     }
+
   }
 
-  if (cell !== "" || row.length) {
+  if (
+    cell !== "" ||
+    row.length
+  ) {
+
     row.push(cell);
 
     if (
       row.some(
-        value => value.trim() !== ""
+        value =>
+          value.trim() !== ""
       )
     ) {
+
       rows.push(row);
+
     }
+
   }
 
-  if (!rows.length) return [];
+  if (!rows.length) {
+    return [];
+  }
 
-  const headers = rows[0].map(h => h.trim());
+  const headers =
+    rows[0].map(
+      h => h.trim()
+    );
 
   return rows
     .slice(1)
     .map(values => {
+
       const object = {};
 
-      headers.forEach((header, index) => {
-        object[header] = (
-          values[index] ?? ""
-        ).trim();
-      });
+      headers.forEach(
+        (header, index) => {
+
+          object[header] =
+            (
+              values[index] ??
+              ""
+            ).trim();
+
+        }
+      );
 
       return object;
+
     })
     .filter(object =>
-      Object.values(object).some(
-        value => value !== ""
-      )
+      Object.values(object)
+        .some(
+          value =>
+            value !== ""
+        )
     );
 }
 
-function getDates(foodRows, workouts) {
+
+/* =========================================================
+   DATY
+========================================================= */
+
+function getDates() {
+
   const dates = [
     ...foodRows
-      .map(row => row["Data"])
+      .map(
+        row =>
+          row["Data"]
+      )
       .filter(Boolean),
 
     ...workouts
-      .map(workout => workout.date)
+      .map(
+        workout =>
+          workout.date
+      )
       .filter(Boolean)
   ];
 
@@ -263,10 +626,18 @@ function getDates(foodRows, workouts) {
   ].sort().reverse();
 }
 
-function totalsForDate(foodRows, date) {
-  const rows = foodRows.filter(
-    row => row["Data"] === date
-  );
+
+/* =========================================================
+   BILANS
+========================================================= */
+
+function totalsForDate(date) {
+
+  const rows =
+    foodRows.filter(
+      row =>
+        row["Data"] === date
+    );
 
   const totals = {
     kcal: 0,
@@ -276,21 +647,27 @@ function totalsForDate(foodRows, date) {
   };
 
   rows.forEach(row => {
-    totals.kcal += num(
-      row["kalorie (kcal)"]
-    );
 
-    totals.protein += num(
-      row["Białka (g)"]
-    );
+    totals.kcal +=
+      num(
+        row["kalorie (kcal)"]
+      );
 
-    totals.carbs += num(
-      row["Węglowodany (g)"]
-    );
+    totals.protein +=
+      num(
+        row["Białka (g)"]
+      );
 
-    totals.fat += num(
-      row["Tłuszcze (g)"]
-    );
+    totals.carbs +=
+      num(
+        row["Węglowodany (g)"]
+      );
+
+    totals.fat +=
+      num(
+        row["Tłuszcze (g)"]
+      );
+
   });
 
   return {
@@ -299,370 +676,1502 @@ function totalsForDate(foodRows, date) {
   };
 }
 
-function ProgressBar({
-  label,
-  value,
-  goal,
-  unit
-}) {
-  const percent = Math.min(
-    100,
-    Math.max(
-      0,
-      (value / goal) * 100
+
+/* =========================================================
+   WYBÓR DNIA
+========================================================= */
+
+function renderDateSelector() {
+
+  const select =
+    $("dateSelect");
+
+  if (!select) return;
+
+  const dates =
+    getDates();
+
+  if (!dates.length) {
+
+    selectedDate = "";
+
+    select.innerHTML =
+      `<option value="">
+        Brak danych
+      </option>`;
+
+    if ($("selectedDateLabel")) {
+      $("selectedDateLabel")
+        .textContent =
+        "Brak danych";
+    }
+
+    if ($("dayCount")) {
+      $("dayCount")
+        .textContent =
+        "0 dni";
+    }
+
+    return;
+  }
+
+  if (
+    !selectedDate ||
+    !dates.includes(
+      selectedDate
     )
+  ) {
+
+    selectedDate =
+      dates[0];
+
+  }
+
+  select.innerHTML =
+    dates
+      .map(
+        date =>
+          `<option value="${esc(date)}">
+            ${esc(date)}
+          </option>`
+      )
+      .join("");
+
+  select.value =
+    selectedDate;
+
+  if ($("selectedDateLabel")) {
+
+    $("selectedDateLabel")
+      .textContent =
+      selectedDate;
+
+  }
+
+  if ($("dayCount")) {
+
+    $("dayCount")
+      .textContent =
+      `${dates.length} ${
+        dates.length === 1
+          ? "dzień"
+          : "dni"
+      }`;
+
+  }
+
+}
+
+
+/* =========================================================
+   POSIŁKI
+========================================================= */
+
+function renderMeals() {
+
+  const box =
+    $("meals");
+
+  if (!box) return;
+
+  if (!selectedDate) {
+
+    box.innerHTML =
+      `<p>Brak danych.</p>`;
+
+    return;
+  }
+
+  const rows =
+    foodRows.filter(
+      row =>
+        row["Data"] ===
+        selectedDate
+    );
+
+  if (!rows.length) {
+
+    box.innerHTML =
+      `<p>Brak posiłków dla tego dnia.</p>`;
+
+    return;
+  }
+
+  const groups = {};
+
+  rows.forEach(row => {
+
+    const meal =
+      row["Posiłek"] ||
+      "Inne";
+
+    if (!groups[meal]) {
+      groups[meal] = [];
+    }
+
+    groups[meal].push(row);
+
+  });
+
+  box.innerHTML =
+    Object.entries(groups)
+      .map(
+        ([meal, products]) =>
+          `
+          <div class="meal">
+
+            <h3>
+              ${esc(meal)}
+            </h3>
+
+            ${
+              products
+                .map(
+                  product => {
+
+                    const name =
+                      product[
+                        "Produkty i potrawy"
+                      ] ||
+                      "Produkt";
+
+                    const kcal =
+                      num(
+                        product[
+                          "kalorie (kcal)"
+                        ]
+                      );
+
+                    const protein =
+                      num(
+                        product[
+                          "Białka (g)"
+                        ]
+                      );
+
+                    const carbs =
+                      num(
+                        product[
+                          "Węglowodany (g)"
+                        ]
+                      );
+
+                    const fat =
+                      num(
+                        product[
+                          "Tłuszcze (g)"
+                        ]
+                      );
+
+                    return `
+                      <div
+                        style="
+                          padding:10px 0;
+                          border-bottom:1px solid #eee;
+                        "
+                      >
+
+                        <strong>
+                          ${esc(name)}
+                        </strong>
+
+                        <div>
+                          ${fmt(kcal)} kcal
+                          · B ${fmt(protein)} g
+                          · W ${fmt(carbs)} g
+                          · T ${fmt(fat)} g
+                        </div>
+
+                      </div>
+                    `;
+
+                  }
+                )
+                .join("")
+            }
+
+          </div>
+        `
+      )
+      .join("");
+
+}
+
+
+/* =========================================================
+   MAKRO
+========================================================= */
+
+function renderMacro() {
+
+  const result =
+    totalsForDate(
+      selectedDate
+    );
+
+  const totals =
+    result.totals;
+
+  if ($("kcal")) {
+    $("kcal").textContent =
+      fmt(totals.kcal);
+  }
+
+  if ($("protein")) {
+    $("protein").textContent =
+      fmt(totals.protein);
+  }
+
+  if ($("carbs")) {
+    $("carbs").textContent =
+      fmt(totals.carbs);
+  }
+
+  if ($("fat")) {
+    $("fat").textContent =
+      fmt(totals.fat);
+  }
+
+}
+
+
+/* =========================================================
+   MIKRO
+========================================================= */
+
+function renderMicro() {
+
+  const box =
+    $("micros");
+
+  if (!box) return;
+
+  const rows =
+    foodRows.filter(
+      row =>
+        row["Data"] ===
+        selectedDate
+    );
+
+  if (!rows.length) {
+
+    box.innerHTML =
+      `<p>Brak danych.</p>`;
+
+    return;
+  }
+
+  box.innerHTML =
+    MICRO_COLUMNS
+      .map(
+        ([column, label, unit]) => {
+
+          const total =
+            rows.reduce(
+              (sum, row) =>
+                sum +
+                num(
+                  row[column]
+                ),
+              0
+            );
+
+          if (!total) {
+            return "";
+          }
+
+          return `
+            <div
+              style="
+                display:flex;
+                justify-content:space-between;
+                padding:7px 0;
+                border-bottom:1px solid #eee;
+              "
+            >
+
+              <span>
+                ${esc(label)}
+              </span>
+
+              <strong>
+                ${fmt(total)}
+                ${unit}
+              </strong>
+
+            </div>
+          `;
+
+        }
+      )
+      .join("");
+
+}
+
+
+/* =========================================================
+   ZWIJANIE SEKCJI
+========================================================= */
+
+function findSectionForElement(id) {
+
+  const element = $(id);
+
+  if (!element) return null;
+
+  let node =
+    element.parentElement;
+
+  while (
+    node &&
+    node !== document.body
+  ) {
+
+    if (
+      node.querySelector &&
+      node.querySelector("h2")
+    ) {
+
+      return node;
+
+    }
+
+    node =
+      node.parentElement;
+  }
+
+  return element.parentElement;
+}
+
+function makeCollapsible(
+  section,
+  title,
+  storageKey
+) {
+
+  if (!section) return;
+
+  if (
+    section.dataset
+      .fueltrackCollapsible === "1"
+  ) {
+    return;
+  }
+
+  section.dataset
+    .fueltrackCollapsible = "1";
+
+  const children =
+    Array.from(
+      section.children
+    );
+
+  const heading =
+    children.find(
+      child =>
+        child.tagName === "H2" ||
+        child.tagName === "H3"
+    );
+
+  if (!heading) return;
+
+  const content =
+    document.createElement("div");
+
+  content.className =
+    "fueltrack-collapse-content";
+
+  content.style.cssText = `
+    overflow:hidden;
+    transition:max-height .28s ease, opacity .2s ease;
+  `;
+
+  const elementsToMove =
+    children.filter(
+      child =>
+        child !== heading
+    );
+
+  elementsToMove.forEach(
+    child =>
+      content.appendChild(child)
   );
 
-  return (
-    <div style={{ marginBottom: 15 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: 6,
-          fontWeight: 700
-        }}
-      >
-        <span>{label}</span>
+  section.innerHTML = "";
 
-        <span>
-          {fmt(value)} / {fmt(goal)} {unit}
-        </span>
-      </div>
+  section.appendChild(
+    heading
+  );
 
-      <div
-        style={{
-          height: 13,
-          background: "#e9ebef",
-          borderRadius: 20,
-          overflow: "hidden"
-        }}
+  section.appendChild(
+    content
+  );
+
+  heading.style.cursor =
+    "pointer";
+
+  heading.style.userSelect =
+    "none";
+
+  heading.style.display =
+    "flex";
+
+  heading.style.justifyContent =
+    "space-between";
+
+  heading.style.alignItems =
+    "center";
+
+  const arrow =
+    document.createElement("span");
+
+  arrow.textContent =
+    "⌄";
+
+  arrow.style.cssText = `
+    font-size:24px;
+    font-weight:700;
+    margin-left:auto;
+    transition:transform .25s ease;
+  `;
+
+  heading.appendChild(
+    arrow
+  );
+
+  let open =
+    localStorage.getItem(
+      storageKey
+    ) === "1";
+
+  function update() {
+
+    content.style.maxHeight =
+      open
+        ? content.scrollHeight + "px"
+        : "0px";
+
+    content.style.opacity =
+      open ? "1" : "0";
+
+    arrow.style.transform =
+      open
+        ? "rotate(180deg)"
+        : "rotate(0deg)";
+
+  }
+
+  heading.onclick = () => {
+
+    open = !open;
+
+    localStorage.setItem(
+      storageKey,
+      open ? "1" : "0"
+    );
+
+    update();
+
+  };
+
+  update();
+}
+
+function setupCollapsibles() {
+
+  const microSection =
+    findSectionForElement(
+      "micros"
+    );
+
+  if (microSection) {
+
+    makeCollapsible(
+      microSection,
+      "Makro i mikro",
+      "fueltrack_macro_open"
+    );
+
+  }
+
+  const historySection =
+    findSectionForElement(
+      "history"
+    );
+
+  if (historySection) {
+
+    makeCollapsible(
+      historySection,
+      "Historia",
+      "fueltrack_history_open"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   PRZYCISK PLANOWANIA TRENINGÓW
+========================================================= */
+
+function setupTrainingNavigation() {
+
+  if (
+    $("trainingPlannerBtn")
+  ) {
+    return;
+  }
+
+  const button =
+    document.createElement("button");
+
+  button.id =
+    "trainingPlannerBtn";
+
+  button.type =
+    "button";
+
+  button.textContent =
+    "🏃 Planowanie treningów";
+
+  button.style.cssText = `
+    border:0;
+    border-radius:16px;
+    padding:14px 20px;
+    background:#111827;
+    color:white;
+    font-size:16px;
+    font-weight:800;
+    cursor:pointer;
+    margin:0 0 22px 0;
+  `;
+
+  button.onclick = () => {
+
+    window.location.href =
+      "treningi.html";
+
+  };
+
+  const importButton =
+    $("importBtn");
+
+  if (
+    importButton &&
+    importButton.parentElement
+  ) {
+
+    importButton.parentElement
+      .appendChild(button);
+
+    return;
+  }
+
+  const container =
+    document.querySelector(
+      ".container"
+    );
+
+  if (container) {
+
+    container.prepend(button);
+
+  } else {
+
+    document.body.prepend(button);
+
+  }
+
+}
+
+
+/* =========================================================
+   TRENINGI — FORMULARZ NA STRONIE GŁÓWNEJ
+========================================================= */
+
+function createWorkoutSection() {
+
+  if ($("workoutSection")) {
+    return;
+  }
+
+  const section =
+    document.createElement("section");
+
+  section.id =
+    "workoutSection";
+
+  section.style.cssText = `
+    background:white;
+    border-radius:28px;
+    padding:24px;
+    margin:22px 0;
+    box-shadow:0 4px 20px rgba(0,0,0,.06);
+  `;
+
+  section.innerHTML = `
+
+    <div
+      style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:12px;
+      "
+    >
+
+      <h2 style="margin:0">
+        🏃 Trening dnia
+      </h2>
+
+      <button
+        id="addWorkoutBtn"
+        style="
+          border:0;
+          border-radius:14px;
+          padding:12px 16px;
+          background:#2463eb;
+          color:white;
+          font-weight:700;
+        "
       >
-        <div
-          style={{
-            width: `${percent}%`,
-            height: "100%",
-            background: "#2463eb",
-            borderRadius: 20
-          }}
-        />
-      </div>
+        + Dodaj
+      </button>
+
     </div>
+
+    <div id="workouts"></div>
+
+    <div
+      id="workoutForm"
+      style="
+        display:none;
+        margin-top:20px;
+        padding:18px;
+        border-radius:20px;
+        background:#f5f6fa;
+      "
+    >
+
+      <h3>Nowy trening</h3>
+
+      <input
+        id="wType"
+        placeholder="Rodzaj treningu"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wDistance"
+        type="number"
+        step="0.01"
+        placeholder="Dystans km"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wTime"
+        placeholder="Czas, np. 52:34"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wPace"
+        placeholder="Tempo, np. 5:18/km"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wHr"
+        type="number"
+        placeholder="Średnie tętno"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wMaxHr"
+        type="number"
+        placeholder="Maksymalne tętno"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wCalories"
+        type="number"
+        placeholder="Kalorie treningu"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wCadence"
+        type="number"
+        placeholder="Kadencja"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <input
+        id="wElevation"
+        type="number"
+        placeholder="Przewyższenie m"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      >
+
+      <textarea
+        id="wNote"
+        placeholder="Odczucia / notatka"
+        rows="3"
+        style="width:100%;box-sizing:border-box;padding:13px;margin:5px 0;border-radius:12px;border:1px solid #ddd"
+      ></textarea>
+
+      <div
+        style="
+          display:flex;
+          gap:10px;
+          margin-top:10px;
+        "
+      >
+
+        <button
+          id="saveWorkoutBtn"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#16794b;
+            color:white;
+            font-weight:700;
+          "
+        >
+          Zapisz
+        </button>
+
+        <button
+          id="cancelWorkoutBtn"
+          style="
+            flex:1;
+            border:0;
+            border-radius:14px;
+            padding:14px;
+            background:#ddd;
+            font-weight:700;
+          "
+        >
+          Anuluj
+        </button>
+
+      </div>
+
+    </div>
+  `;
+
+  const history =
+    $("history");
+
+  if (
+    history &&
+    history.parentElement
+  ) {
+
+    history.parentElement
+      .before(section);
+
+  } else {
+
+    document.body.appendChild(
+      section
+    );
+
+  }
+
+  setupWorkoutEvents();
+}
+
+
+/* =========================================================
+   TRENINGI — EVENTY
+========================================================= */
+
+function setupWorkoutEvents() {
+
+  const add =
+    $("addWorkoutBtn");
+
+  const save =
+    $("saveWorkoutBtn");
+
+  const cancel =
+    $("cancelWorkoutBtn");
+
+  if (add) {
+
+    add.onclick = () => {
+
+      if (!selectedDate) {
+
+        status(
+          "Najpierw wybierz dzień.",
+          true
+        );
+
+        return;
+      }
+
+      $("workoutForm")
+        .style.display =
+        "block";
+
+    };
+
+  }
+
+  if (cancel) {
+
+    cancel.onclick = () => {
+
+      $("workoutForm")
+        .style.display =
+        "none";
+
+    };
+
+  }
+
+  if (save) {
+    save.onclick =
+      saveWorkout;
+  }
+
+}
+
+function saveWorkout() {
+
+  if (!selectedDate) {
+
+    status(
+      "Nie wybrano dnia.",
+      true
+    );
+
+    return;
+  }
+
+  const workout = {
+
+    id:
+      Date.now().toString(),
+
+    date:
+      selectedDate,
+
+    type:
+      $("wType").value.trim(),
+
+    distance:
+      num(
+        $("wDistance").value
+      ),
+
+    time:
+      $("wTime").value.trim(),
+
+    pace:
+      $("wPace").value.trim(),
+
+    hr:
+      num(
+        $("wHr").value
+      ),
+
+    maxHr:
+      num(
+        $("wMaxHr").value
+      ),
+
+    calories:
+      num(
+        $("wCalories").value
+      ),
+
+    cadence:
+      num(
+        $("wCadence").value
+      ),
+
+    elevation:
+      num(
+        $("wElevation").value
+      ),
+
+    note:
+      $("wNote").value.trim()
+
+  };
+
+  if (
+    !workout.type &&
+    !workout.distance &&
+    !workout.time
+  ) {
+
+    status(
+      "Wpisz rodzaj, dystans albo czas.",
+      true
+    );
+
+    return;
+  }
+
+  workouts.push(
+    workout
+  );
+
+  saveWorkouts();
+
+  [
+    "wType",
+    "wDistance",
+    "wTime",
+    "wPace",
+    "wHr",
+    "wMaxHr",
+    "wCalories",
+    "wCadence",
+    "wElevation",
+    "wNote"
+  ].forEach(id => {
+
+    if ($(id)) {
+      $(id).value = "";
+    }
+
+  });
+
+  $("workoutForm")
+    .style.display =
+    "none";
+
+  renderWorkouts();
+  renderHistory();
+
+  status(
+    "Trening zapisany."
   );
 }
 
-export default function App() {
-  const [foodRows, setFoodRows] = useState([]);
-  const [workouts, setWorkouts] = useState([]);
-  const [selectedDate, setSelectedDate] = useState("");
 
-  const [showMacroMicro, setShowMacroMicro] =
-    useState(false);
+/* =========================================================
+   WYŚWIETLANIE TRENINGU
+========================================================= */
 
-  const [showHistory, setShowHistory] =
-    useState(false);
+function renderWorkouts() {
 
-  const [report, setReport] = useState("");
+  const box =
+    $("workouts");
 
-  const [isTrainingPage, setIsTrainingPage] =
-    useState(
-      window.location.hash === "#/training"
+  if (!box) return;
+
+  const list =
+    workouts.filter(
+      workout =>
+        workout.date ===
+        selectedDate
     );
 
-  useEffect(() => {
-    const onHashChange = () => {
-      setIsTrainingPage(
-        window.location.hash === "#/training"
-      );
-    };
+  if (!list.length) {
 
-    window.addEventListener(
-      "hashchange",
-      onHashChange
-    );
+    box.innerHTML = `
+      <div
+        style="
+          color:#777;
+          padding:14px 0;
+        "
+      >
+        Brak zapisanego treningu.
+      </div>
+    `;
 
-    return () =>
-      window.removeEventListener(
-        "hashchange",
-        onHashChange
-      );
-  }, []);
-
-  useEffect(() => {
-    const savedFood = safeParse(
-      localStorage.getItem(FOOD_KEY)
-    );
-
-    if (looksLikeFitatu(savedFood)) {
-      setFoodRows(
-        normaliseRows(savedFood)
-      );
-    } else {
-      const recovered =
-        recoverOldFoodData();
-
-      setFoodRows(recovered);
-
-      if (recovered.length) {
-        localStorage.setItem(
-          FOOD_KEY,
-          JSON.stringify(recovered)
-        );
-      }
-    }
-
-    const savedWorkouts = safeParse(
-      localStorage.getItem(WORKOUT_KEY)
-    );
-
-    if (Array.isArray(savedWorkouts)) {
-      setWorkouts(savedWorkouts);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (
-      selectedDate ||
-      foodRows.length ||
-      workouts.length
-    ) {
-      localStorage.setItem(
-        FOOD_KEY,
-        JSON.stringify(foodRows)
-      );
-    }
-  }, [foodRows]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      WORKOUT_KEY,
-      JSON.stringify(workouts)
-    );
-  }, [workouts]);
-
-  const dates = getDates(
-    foodRows,
-    workouts
-  );
-
-  useEffect(() => {
-    if (!selectedDate && dates.length) {
-      setSelectedDate(dates[0]);
-    }
-  }, [dates.join("|")]);
-
-  if (isTrainingPage) {
-    return <TrainingPage />;
+    return;
   }
 
-  const result = totalsForDate(
-    foodRows,
-    selectedDate
-  );
+  box.innerHTML =
+    list.map(workout => {
 
-  const rows = result.rows;
-  const totals = result.totals;
+      return `
+        <div
+          style="
+            padding:17px;
+            margin:14px 0;
+            border-radius:18px;
+            background:#f5f6fa;
+          "
+        >
+
+          <div
+            style="
+              font-size:18px;
+              font-weight:800;
+              margin-bottom:12px;
+            "
+          >
+            🏃 ${esc(
+              workout.type ||
+              "Trening"
+            )}
+          </div>
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:1fr 1fr;
+              gap:10px;
+            "
+          >
+
+            ${
+              workout.distance
+                ? `
+                  <div>
+                    <small>Dystans</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.distance)} km
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.time
+                ? `
+                  <div>
+                    <small>Czas</small>
+                    <br>
+                    <b>
+                      ${esc(workout.time)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.pace
+                ? `
+                  <div>
+                    <small>Tempo</small>
+                    <br>
+                    <b>
+                      ${esc(workout.pace)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.hr
+                ? `
+                  <div>
+                    <small>Śr. HR</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.hr)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.maxHr
+                ? `
+                  <div>
+                    <small>Max HR</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.maxHr)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.calories
+                ? `
+                  <div>
+                    <small>Kalorie</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.calories)} kcal
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.cadence
+                ? `
+                  <div>
+                    <small>Kadencja</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.cadence)}
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+            ${
+              workout.elevation
+                ? `
+                  <div>
+                    <small>Przewyższenie</small>
+                    <br>
+                    <b>
+                      ${fmt(workout.elevation)} m
+                    </b>
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+          ${
+            workout.note
+              ? `
+                <div
+                  style="
+                    margin-top:12px;
+                    padding-top:12px;
+                    border-top:1px solid #ddd;
+                  "
+                >
+                  📝 ${esc(workout.note)}
+                </div>
+              `
+              : ""
+          }
+
+          <button
+            data-delete-workout="${esc(workout.id)}"
+            style="
+              margin-top:14px;
+              border:0;
+              border-radius:10px;
+              padding:9px 13px;
+              background:#fee4e2;
+              color:#b42318;
+              font-weight:700;
+            "
+          >
+            Usuń
+          </button>
+
+        </div>
+      `;
+
+    }).join("");
+
+  box
+    .querySelectorAll(
+      "[data-delete-workout]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        if (
+          !confirm(
+            "Usunąć ten trening?"
+          )
+        ) {
+          return;
+        }
+
+        const id =
+          button.dataset
+            .deleteWorkout;
+
+        workouts =
+          workouts.filter(
+            workout =>
+              String(
+                workout.id
+              ) !==
+              String(id)
+          );
+
+        saveWorkouts();
+
+        renderWorkouts();
+        renderHistory();
+
+        status(
+          "Trening usunięty."
+        );
+
+      };
+
+    });
+
+}
+
+
+/* =========================================================
+   HISTORIA
+========================================================= */
+
+function renderHistory() {
+
+  const box =
+    $("history");
+
+  if (!box) return;
+
+  const dates =
+    getDates();
+
+  if (!dates.length) {
+
+    box.innerHTML =
+      `<p>Brak zapisanych dni.</p>`;
+
+    return;
+  }
+
+  box.innerHTML =
+    dates.map(date => {
+
+      const result =
+        totalsForDate(date);
+
+      const workoutCount =
+        workouts.filter(
+          workout =>
+            workout.date ===
+            date
+        ).length;
+
+      return `
+        <div
+          style="
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+            align-items:center;
+            padding:12px 0;
+            border-bottom:1px solid #eee;
+          "
+        >
+
+          <button
+            data-history-date="${esc(date)}"
+            style="
+              border:0;
+              background:none;
+              font-weight:700;
+              font-size:16px;
+            "
+          >
+            ${esc(date)}
+          </button>
+
+          <span>
+            ${fmt(result.totals.kcal)}
+            kcal
+            ${
+              workoutCount
+                ? ` · 🏃 ${workoutCount}`
+                : ""
+            }
+          </span>
+
+        </div>
+      `;
+
+    }).join("");
+
+  box
+    .querySelectorAll(
+      "[data-history-date]"
+    )
+    .forEach(button => {
+
+      button.onclick = () => {
+
+        selectedDate =
+          button.dataset
+            .historyDate;
+
+        renderAll();
+
+        window.scrollTo({
+          top:0,
+          behavior:"smooth"
+        });
+
+      };
+
+    });
+
+}
+
+
+/* =========================================================
+   RAPORT
+========================================================= */
+
+function createReport(date) {
+
+  const result =
+    totalsForDate(date);
+
+  const rows =
+    result.rows;
+
+  const totals =
+    result.totals;
+
+  let text =
+    `FUELTRACK AI\n` +
+    `RAPORT DNIA: ${date}\n\n`;
 
   const meals = {};
 
   rows.forEach(row => {
+
     const meal =
-      row["Posiłek"] || "Inne";
+      row["Posiłek"] ||
+      "Inne";
 
     if (!meals[meal]) {
       meals[meal] = [];
     }
 
     meals[meal].push(row);
+
   });
 
-  const dayWorkouts =
-    workouts.filter(
-      workout =>
-        workout.date === selectedDate
-    );
-
-  function importCSV(event) {
-    const file =
-      event.target.files[0];
-
-    if (!file) return;
-
-    file.text().then(text => {
-      try {
-        const imported =
-          parseCSV(text);
-
-        if (!imported.length) {
-          throw new Error(
-            "CSV jest pusty."
-          );
-        }
-
-        if (!("Data" in imported[0])) {
-          throw new Error(
-            "Nie znaleziono kolumny Data."
-          );
-        }
-
-        const importedDates = [
-          ...new Set(
-            imported
-              .map(row => row["Data"])
-              .filter(Boolean)
-          )
-        ];
-
-        const existingDates =
-          new Set(
-            foodRows
-              .map(row => row["Data"])
-              .filter(Boolean)
-          );
-
-        const conflicts =
-          importedDates.filter(
-            date =>
-              existingDates.has(date)
-          );
-
-        if (conflicts.length) {
-          const replace =
-            window.confirm(
-              `Import zawiera ${importedDates.length} dni.\n\n` +
-              `Dni już zapisane: ${conflicts.length}\n\n` +
-              `OK — zastąp istniejące dni.\n` +
-              `Anuluj — zachowaj istniejące dane i dodaj tylko nowe dni.`
-            );
-
-          if (replace) {
-            const conflictSet =
-              new Set(conflicts);
-
-            setFoodRows(prev => [
-              ...prev.filter(
-                row =>
-                  !conflictSet.has(
-                    row["Data"]
-                  )
-              ),
-              ...imported
-            ]);
-          } else {
-            setFoodRows(prev => [
-              ...prev,
-              ...imported.filter(
-                row =>
-                  !existingDates.has(
-                    row["Data"]
-                  )
-              )
-            ]);
-          }
-        } else {
-          setFoodRows(prev => [
-            ...prev,
-            ...imported
-          ]);
-        }
-
-        setSelectedDate(
-          importedDates[0] ||
-            selectedDate
-        );
-
-        alert(
-          `Zaimportowano ${imported.length} rekordów Fitatu.`
-        );
-      } catch (error) {
-        alert(
-          error.message ||
-            "Błąd importu."
-        );
-      }
-    });
-
-    event.target.value = "";
-  }
-
-  function createReport() {
-    if (!selectedDate) return;
-
-    let text =
-      `FUELTRACK AI\n` +
-      `RAPORT DNIA: ${selectedDate}\n\n`;
-
-    Object.entries(meals).forEach(
+  Object.entries(meals)
+    .forEach(
       ([meal, products]) => {
+
         text +=
           `${meal.toUpperCase()}\n`;
 
         products.forEach(product => {
+
           text +=
             `• ${
               product[
                 "Produkty i potrawy"
-              ] || "Produkt"
+              ] ||
+              "Produkt"
             }`;
 
-          if (product["ilość (g)"]) {
+          if (
+            product["ilość (g)"]
+          ) {
+
             text +=
-              ` — ${product["ilość (g)"]} g`;
+              ` — ${
+                product[
+                  "ilość (g)"
+                ]
+              } g`;
+
           }
 
           text +=
-            ` — ${fmt(
-              num(
-                product[
-                  "kalorie (kcal)"
-                ]
+            ` — ${
+              fmt(
+                num(
+                  product[
+                    "kalorie (kcal)"
+                  ]
+                )
               )
-            )} kcal`;
+            } kcal`;
 
           text +=
-            ` | B ${fmt(
-              num(
-                product["Białka (g)"]
+            ` | B ${
+              fmt(
+                num(
+                  product[
+                    "Białka (g)"
+                  ]
+                )
               )
-            )} g`;
+            } g`;
 
           text +=
-            ` | W ${fmt(
-              num(
-                product[
-                  "Węglowodany (g)"
-                ]
+            ` | W ${
+              fmt(
+                num(
+                  product[
+                    "Węglowodany (g)"
+                  ]
+                )
               )
-            )} g`;
+            } g`;
 
           text +=
-            ` | T ${fmt(
-              num(
-                product["Tłuszcze (g)"]
+            ` | T ${
+              fmt(
+                num(
+                  product[
+                    "Tłuszcze (g)"
+                  ]
+                )
               )
-            )} g\n`;
+            } g\n`;
+
         });
 
         text += "\n";
+
       }
     );
 
+  text +=
+    `PODSUMOWANIE\n` +
+    `Kalorie: ${fmt(totals.kcal)} kcal\n` +
+    `Białko: ${fmt(totals.protein)} g\n` +
+    `Węglowodany: ${fmt(totals.carbs)} g\n` +
+    `Tłuszcz: ${fmt(totals.fat)} g\n\n`;
+
+  text +=
+    `TRENINGI\n`;
+
+  const dayWorkouts =
+    workouts.filter(
+      workout =>
+        workout.date === date
+    );
+
+  if (!dayWorkouts.length) {
+
     text +=
-      `PODSUMOWANIE\n` +
-      `Kalorie: ${fmt(totals.kcal)} kcal\n` +
-      `Białko: ${fmt(totals.protein)} g\n` +
-      `Węglowodany: ${fmt(totals.carbs)} g\n` +
-      `Tłuszcz: ${fmt(totals.fat)} g\n\n`;
+      `Brak zapisanych treningów.\n`;
 
-    text += "TRENINGI\n";
+  } else {
 
-    if (!dayWorkouts.length) {
-      text +=
-        "Brak zapisanych treningów.\n";
-    } else {
-      dayWorkouts.forEach(workout => {
+    dayWorkouts.forEach(
+      workout => {
+
         text +=
-          `• ${workout.type || "Trening"}`;
+          `• ${
+            workout.type ||
+            "Trening"
+          }`;
 
         if (workout.distance) {
           text +=
@@ -690,684 +2199,828 @@ export default function App() {
         }
 
         text += "\n";
-      });
-    }
 
-    text += "\nMIKROELEMENTY\n";
-
-    MICRO_COLUMNS.forEach(
-      ([column, label, unit]) => {
-        const total =
-          rows.reduce(
-            (sum, row) =>
-              sum + num(row[column]),
-            0
-          );
-
-        if (total) {
-          text +=
-            `${label}: ${fmt(total)} ${unit}\n`;
-        }
       }
     );
 
-    setReport(text);
   }
 
-  async function copyReport() {
-    if (!report) return;
+  text +=
+    `\nMIKROELEMENTY\n`;
 
-    try {
-      await navigator.clipboard.writeText(
-        report
-      );
+  MICRO_COLUMNS.forEach(
+    ([column, label, unit]) => {
 
-      alert("Raport skopiowany.");
-    } catch {
-      alert(
-        "Nie udało się skopiować raportu."
-      );
+      const total =
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            num(
+              row[column]
+            ),
+          0
+        );
+
+      if (total) {
+
+        text +=
+          `${label}: ${fmt(total)} ${unit}\n`;
+
+      }
+
     }
+  );
+
+  return text;
+}
+
+
+/* =========================================================
+   KOPIOWANIE RAPORTU
+========================================================= */
+
+async function copyReport() {
+
+  if (!selectedDate) {
+
+    status(
+      "Brak wybranego dnia.",
+      true
+    );
+
+    return;
   }
 
-  return (
-    <div
-      style={{
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: 18,
-        fontFamily:
-          "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
-      }}
-    >
-      <h1>
-        🍽️ FuelTrack AI
-      </h1>
+  const text =
+    createReport(
+      selectedDate
+    );
 
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          flexWrap: "wrap",
-          marginBottom: 20
-        }}
-      >
-        <label
-          style={{
-            display: "inline-block",
-            background: "#2463eb",
-            color: "white",
-            padding: "13px 17px",
-            borderRadius: 14,
-            fontWeight: 700
-          }}
-        >
-          Importuj Fitatu CSV
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={importCSV}
-            style={{ display: "none" }}
-          />
-        </label>
+  try {
 
-        <button
-          onClick={() => {
-            window.location.hash =
-              "#/training";
-          }}
-          style={{
-            border: 0,
-            borderRadius: 14,
-            padding: "13px 17px",
-            background: "#16794b",
-            color: "white",
-            fontWeight: 700
-          }}
-        >
-          🏃 Planowanie treningów
-        </button>
-      </div>
+    await navigator.clipboard
+      .writeText(text);
 
-      <div
-        style={{
-          background: "white",
-          borderRadius: 25,
-          padding: 20,
-          boxShadow:
-            "0 4px 20px rgba(0,0,0,.06)",
-          marginBottom: 18
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>
-          Dzień
-        </h2>
+  } catch {
 
-        {dates.length ? (
-          <select
-            value={selectedDate}
-            onChange={e =>
-              setSelectedDate(
-                e.target.value
-              )
-            }
-            style={{
-              width: "100%",
-              boxSizing: "border-box",
-              padding: 14,
-              borderRadius: 13,
-              border: "1px solid #ddd",
-              fontSize: 16
-            }}
-          >
-            {dates.map(date => (
-              <option
-                key={date}
-                value={date}
-              >
-                {date}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p>
-            Brak zaimportowanych danych.
-          </p>
-        )}
-      </div>
+    const textarea =
+      document.createElement(
+        "textarea"
+      );
 
-      {selectedDate && (
-        <>
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)",
-              marginBottom: 18
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>
-              📊 Bilans dnia
-            </h2>
+    textarea.value =
+      text;
 
-            <ProgressBar
-              label="Kalorie"
-              value={totals.kcal}
-              goal={GOALS.kcal}
-              unit="kcal"
-            />
+    document.body.appendChild(
+      textarea
+    );
 
-            <ProgressBar
-              label="Białko"
-              value={totals.protein}
-              goal={GOALS.protein}
-              unit="g"
-            />
+    textarea.select();
 
-            <ProgressBar
-              label="Węglowodany"
-              value={totals.carbs}
-              goal={GOALS.carbs}
-              unit="g"
-            />
+    document.execCommand(
+      "copy"
+    );
 
-            <ProgressBar
-              label="Tłuszcz"
-              value={totals.fat}
-              goal={GOALS.fat}
-              unit="g"
-            />
-          </div>
+    textarea.remove();
 
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)",
-              marginBottom: 18
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>
-              🍴 Posiłki
-            </h2>
+  }
 
-            {Object.keys(meals).length === 0 ? (
-              <p>
-                Brak posiłków dla tego dnia.
-              </p>
-            ) : (
-              Object.entries(meals).map(
-                ([meal, products]) => (
-                  <div
-                    key={meal}
-                    style={{
-                      marginBottom: 20
-                    }}
-                  >
-                    <h3>{meal}</h3>
-
-                    {products.map(
-                      (product, index) => (
-                        <div
-                          key={index}
-                          style={{
-                            padding:
-                              "10px 0",
-                            borderBottom:
-                              "1px solid #eee"
-                          }}
-                        >
-                          <strong>
-                            {
-                              product[
-                                "Produkty i potrawy"
-                              ] ||
-                              "Produkt"
-                            }
-                          </strong>
-
-                          <div
-                            style={{
-                              color: "#666",
-                              marginTop: 4
-                            }}
-                          >
-                            {fmt(
-                              num(
-                                product[
-                                  "kalorie (kcal)"
-                                ]
-                              )
-                            )}{" "}
-                            kcal · B{" "}
-                            {fmt(
-                              num(
-                                product[
-                                  "Białka (g)"
-                                ]
-                              )
-                            )}{" "}
-                            g · W{" "}
-                            {fmt(
-                              num(
-                                product[
-                                  "Węglowodany (g)"
-                                ]
-                              )
-                            )}{" "}
-                            g · T{" "}
-                            {fmt(
-                              num(
-                                product[
-                                  "Tłuszcze (g)"
-                                ]
-                              )
-                            )}{" "}
-                            g
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )
-              )
-            )}
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)",
-              marginBottom: 18
-            }}
-          >
-            <button
-              onClick={() =>
-                setShowMacroMicro(
-                  !showMacroMicro
-                )
-              }
-              style={{
-                width: "100%",
-                border: 0,
-                background: "none",
-                padding: 0,
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                fontSize: 20,
-                fontWeight: 800
-              }}
-            >
-              <span>
-                🧬 Makro i mikro
-              </span>
-
-              <span>
-                {showMacroMicro
-                  ? "▲"
-                  : "▼"}
-              </span>
-            </button>
-
-            {showMacroMicro && (
-              <div
-                style={{
-                  marginTop: 20
-                }}
-              >
-                <h3>
-                  Makro
-                </h3>
-
-                <p>
-                  Kalorie:{" "}
-                  <b>
-                    {fmt(totals.kcal)} kcal
-                  </b>
-                </p>
-
-                <p>
-                  Białko:{" "}
-                  <b>
-                    {fmt(totals.protein)} g
-                  </b>
-                </p>
-
-                <p>
-                  Węglowodany:{" "}
-                  <b>
-                    {fmt(totals.carbs)} g
-                  </b>
-                </p>
-
-                <p>
-                  Tłuszcz:{" "}
-                  <b>
-                    {fmt(totals.fat)} g
-                  </b>
-                </p>
-
-                <h3>
-                  Mikroelementy
-                </h3>
-
-                {MICRO_COLUMNS.map(
-                  ([column, label, unit]) => {
-                    const total =
-                      rows.reduce(
-                        (sum, row) =>
-                          sum +
-                          num(row[column]),
-                        0
-                      );
-
-                    if (!total) {
-                      return null;
-                    }
-
-                    return (
-                      <div
-                        key={column}
-                        style={{
-                          display: "flex",
-                          justifyContent:
-                            "space-between",
-                          padding:
-                            "7px 0",
-                          borderBottom:
-                            "1px solid #eee"
-                        }}
-                      >
-                        <span>
-                          {label}
-                        </span>
-
-                        <strong>
-                          {fmt(total)}{" "}
-                          {unit}
-                        </strong>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)",
-              marginBottom: 18
-            }}
-          >
-            <button
-              onClick={() =>
-                setShowHistory(
-                  !showHistory
-                )
-              }
-              style={{
-                width: "100%",
-                border: 0,
-                background: "none",
-                padding: 0,
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "center",
-                fontSize: 20,
-                fontWeight: 800
-              }}
-            >
-              <span>
-                📚 Historia
-              </span>
-
-              <span>
-                {showHistory
-                  ? "▲"
-                  : "▼"}
-              </span>
-            </button>
-
-            {showHistory && (
-              <div
-                style={{
-                  marginTop: 18
-                }}
-              >
-                {dates.map(date => {
-                  const day =
-                    totalsForDate(
-                      foodRows,
-                      date
-                    );
-
-                  const count =
-                    workouts.filter(
-                      workout =>
-                        workout.date ===
-                        date
-                    ).length;
-
-                  return (
-                    <button
-                      key={date}
-                      onClick={() =>
-                        setSelectedDate(
-                          date
-                        )
-                      }
-                      style={{
-                        width: "100%",
-                        display:
-                          "flex",
-                        justifyContent:
-                          "space-between",
-                        alignItems:
-                          "center",
-                        border: 0,
-                        borderBottom:
-                          "1px solid #eee",
-                        background:
-                          "white",
-                        padding:
-                          "13px 0",
-                        fontSize: 15
-                      }}
-                    >
-                      <strong>
-                        {date}
-                      </strong>
-
-                      <span>
-                        {fmt(
-                          day.totals
-                            .kcal
-                        )}{" "}
-                        kcal
-                        {count
-                          ? ` · 🏃 ${count}`
-                          : ""}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)",
-              marginBottom: 18
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>
-              🏃 Trening — {selectedDate}
-            </h2>
-
-            {dayWorkouts.length === 0 ? (
-              <p
-                style={{
-                  color: "#777"
-                }}
-              >
-                Brak treningu zapisanego
-                dla tego dnia.
-              </p>
-            ) : (
-              dayWorkouts.map(
-                workout => (
-                  <div
-                    key={workout.id}
-                    style={{
-                      background:
-                        "#f5f6fa",
-                      borderRadius: 16,
-                      padding: 14,
-                      marginBottom: 10
-                    }}
-                  >
-                    <strong>
-                      {workout.type ||
-                        "Trening"}
-                    </strong>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        color: "#555"
-                      }}
-                    >
-                      {workout.distance
-                        ? `${fmt(
-                            workout.distance
-                          )} km`
-                        : ""}
-                      {workout.time
-                        ? ` · ${workout.time}`
-                        : ""}
-                      {workout.pace
-                        ? ` · ${workout.pace}`
-                        : ""}
-                      {workout.calories
-                        ? ` · ${fmt(
-                            workout.calories
-                          )} kcal`
-                        : ""}
-                    </div>
-                  </div>
-                )
-              )
-            )}
-
-            <button
-              onClick={() => {
-                window.location.hash =
-                  "#/training";
-              }}
-              style={{
-                width: "100%",
-                border: 0,
-                borderRadius: 14,
-                padding: 13,
-                background: "#16794b",
-                color: "white",
-                fontWeight: 700
-              }}
-            >
-              Otwórz planowanie treningów
-            </button>
-          </div>
-
-          <div
-            style={{
-              background: "white",
-              borderRadius: 25,
-              padding: 20,
-              boxShadow:
-                "0 4px 20px rgba(0,0,0,.06)"
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>
-              📋 Raport dnia
-            </h2>
-
-            <button
-              onClick={createReport}
-              style={{
-                width: "100%",
-                border: 0,
-                borderRadius: 14,
-                padding: 13,
-                background: "#2463eb",
-                color: "white",
-                fontWeight: 700,
-                marginBottom: 10
-              }}
-            >
-              Generuj raport tekstowy
-            </button>
-
-            {report && (
-              <>
-                <textarea
-                  value={report}
-                  readOnly
-                  rows={16}
-                  style={{
-                    width: "100%",
-                    boxSizing:
-                      "border-box",
-                    padding: 13,
-                    borderRadius: 13,
-                    border:
-                      "1px solid #ddd",
-                    fontFamily:
-                      "monospace",
-                    fontSize: 13
-                  }}
-                />
-
-                <button
-                  onClick={copyReport}
-                  style={{
-                    width: "100%",
-                    marginTop: 10,
-                    border: 0,
-                    borderRadius: 14,
-                    padding: 13,
-                    background:
-                      "#16794b",
-                    color: "white",
-                    fontWeight: 700
-                  }}
-                >
-                  📋 Kopiuj cały raport
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+  status(
+    "Raport skopiowany."
   );
 }
+
+
+/* =========================================================
+   IMPORT FITATU
+========================================================= */
+
+function setupImport() {
+
+  const button =
+    $("importBtn");
+
+  const input =
+    $("fileInput");
+
+  if (
+    !button ||
+    !input
+  ) {
+    return;
+  }
+
+  button.onclick = () => {
+    input.click();
+  };
+
+  input.onchange =
+    async event => {
+
+      const file =
+        event.target.files[0];
+
+      if (!file) return;
+
+      try {
+
+        const imported =
+          parseCSV(
+            await file.text()
+          );
+
+        if (
+          !imported.length
+        ) {
+
+          throw new Error(
+            "CSV jest pusty."
+          );
+
+        }
+
+        if (
+          !(
+            "Data" in
+            imported[0]
+          )
+        ) {
+
+          throw new Error(
+            "Nie znaleziono kolumny Data."
+          );
+
+        }
+
+        const importedDates =
+          [
+            ...new Set(
+              imported
+                .map(
+                  row =>
+                    row["Data"]
+                )
+                .filter(Boolean)
+            )
+          ];
+
+        const existingDates =
+          new Set(
+            foodRows
+              .map(
+                row =>
+                  row["Data"]
+              )
+              .filter(Boolean)
+          );
+
+        const conflicts =
+          importedDates.filter(
+            date =>
+              existingDates.has(
+                date
+              )
+          );
+
+        if (
+          conflicts.length
+        ) {
+
+          const replace =
+            confirm(
+              `Import zawiera ${importedDates.length} dni.\n\n` +
+              `Dni już zapisane: ${conflicts.length}\n\n` +
+              `OK — zastąp istniejące dni.\n` +
+              `Anuluj — zachowaj istniejące dane i dodaj tylko nowe dni.`
+            );
+
+          if (replace) {
+
+            const conflictSet =
+              new Set(
+                conflicts
+              );
+
+            foodRows =
+              foodRows.filter(
+                row =>
+                  !conflictSet.has(
+                    row["Data"]
+                  )
+              );
+
+            foodRows.push(
+              ...imported
+            );
+
+          } else {
+
+            foodRows.push(
+              ...imported.filter(
+                row =>
+                  !existingDates.has(
+                    row["Data"]
+                  )
+              )
+            );
+
+          }
+
+        } else {
+
+          foodRows.push(
+            ...imported
+          );
+
+        }
+
+        saveFood();
+
+        selectedDate =
+          importedDates[0] ||
+          selectedDate;
+
+        renderAll();
+
+        status(
+          `Zaimportowano ${imported.length} rekordów Fitatu.`
+        );
+
+      } catch(error) {
+
+        status(
+          error.message ||
+          "Błąd importu.",
+          true
+        );
+
+      }
+
+      input.value = "";
+
+    };
+
+}
+
+
+/* =========================================================
+   EVENTY
+========================================================= */
+
+function setupEvents() {
+
+  const select =
+    $("dateSelect");
+
+  if (select) {
+
+    select.onchange =
+      event => {
+
+        selectedDate =
+          event.target.value;
+
+        renderAll();
+
+      };
+
+  }
+
+  const copy =
+    $("copyBtn");
+
+  if (copy) {
+
+    copy.onclick =
+      copyReport;
+
+  }
+
+}
+
+
+/* =========================================================
+   RENDER
+========================================================= */
+
+function renderAll() {
+
+  renderDateSelector();
+
+  renderMacro();
+
+  renderMeals();
+
+  renderMicro();
+
+  renderWorkouts();
+
+  renderHistory();
+
+}
+
+
+/* =========================================================
+   STRONA PLANOWANIA TRENINGÓW
+========================================================= */
+
+function isTrainingPage() {
+
+  return (
+    window.location.pathname
+      .toLowerCase()
+      .includes("treningi")
+  );
+}
+
+function renderTrainingPage() {
+
+  document.body.innerHTML = `
+    <main
+      style="
+        max-width:900px;
+        margin:0 auto;
+        padding:24px;
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+        background:#f5f6fa;
+        min-height:100vh;
+      "
+    >
+
+      <button
+        id="backNutritionBtn"
+        style="
+          border:0;
+          border-radius:14px;
+          padding:12px 18px;
+          background:#111827;
+          color:white;
+          font-weight:800;
+          margin-bottom:22px;
+        "
+      >
+        ← Żywienie
+      </button>
+
+      <h1 style="font-size:38px;margin:0 0 8px">
+        Planowanie treningów
+      </h1>
+
+      <p style="color:#6b7280">
+        Kalendarz planowanych treningów
+      </p>
+
+      <section
+        style="
+          background:white;
+          border-radius:24px;
+          padding:22px;
+          margin-top:22px;
+        "
+      >
+
+        <h2>Kalendarz</h2>
+
+        <div
+          id="trainingCalendar"
+        ></div>
+
+      </section>
+
+      <section
+        style="
+          background:white;
+          border-radius:24px;
+          padding:22px;
+          margin-top:22px;
+        "
+      >
+
+        <h2>Dodaj trening do planu</h2>
+
+        <input
+          id="planDate"
+          type="date"
+          style="width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border-radius:12px;border:1px solid #ddd"
+        >
+
+        <select
+          id="planType"
+          style="width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border-radius:12px;border:1px solid #ddd"
+        >
+
+          <option value="Easy">
+            Easy
+          </option>
+
+          <option value="Long">
+            Long
+          </option>
+
+          <option value="Interwały">
+            Interwały
+          </option>
+
+          <option value="Podbiegi">
+            Podbiegi
+          </option>
+
+          <option value="Siłownia">
+            Siłownia
+          </option>
+
+          <option value="Regeneracja">
+            Regeneracja
+          </option>
+
+          <option value="Inny">
+            Inny
+          </option>
+
+        </select>
+
+        <input
+          id="planName"
+          placeholder="Nazwa / opis treningu"
+          style="width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border-radius:12px;border:1px solid #ddd"
+        >
+
+        <input
+          id="planCalories"
+          type="number"
+          placeholder="Przypuszczalne kcal"
+          style="width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border-radius:12px;border:1px solid #ddd"
+        >
+
+        <textarea
+          id="planNote"
+          rows="3"
+          placeholder="Notatka"
+          style="width:100%;box-sizing:border-box;padding:13px;margin:6px 0;border-radius:12px;border:1px solid #ddd"
+        ></textarea>
+
+        <button
+          id="savePlanBtn"
+          style="
+            width:100%;
+            border:0;
+            border-radius:14px;
+            padding:15px;
+            background:#2463eb;
+            color:white;
+            font-weight:800;
+            margin-top:10px;
+          "
+        >
+          + Dodaj do kalendarza
+        </button>
+
+      </section>
+
+      <section
+        style="
+          background:white;
+          border-radius:24px;
+          padding:22px;
+          margin-top:22px;
+        "
+      >
+
+        <h2>Odbyty trening</h2>
+
+        <p style="color:#6b7280">
+          Tutaj wpisujemy rzeczywiste dane treningu.
+        </p>
+
+        <div id="plannedWorkouts"></div>
+
+      </section>
+
+    </main>
+  `;
+
+  $("backNutritionBtn").onclick =
+    () => {
+      window.location.href =
+        "index.html";
+    };
+
+  setupTrainingPageEvents();
+
+  renderTrainingCalendar();
+
+  renderPlannedWorkouts();
+}
+
+function setupTrainingPageEvents() {
+
+  const save =
+    $("savePlanBtn");
+
+  if (!save) return;
+
+  save.onclick = () => {
+
+    const date =
+      $("planDate").value;
+
+    if (!date) {
+
+      status(
+        "Wybierz datę.",
+        true
+      );
+
+      return;
+    }
+
+    const item = {
+
+      id:
+        Date.now().toString(),
+
+      date,
+
+      type:
+        $("planType").value,
+
+      name:
+        $("planName").value.trim(),
+
+      calories:
+        num(
+          $("planCalories").value
+        ),
+
+      note:
+        $("planNote").value.trim()
+
+    };
+
+    trainingPlan.push(
+      item
+    );
+
+    saveTrainingPlan();
+
+    $("planName").value = "";
+    $("planCalories").value = "";
+    $("planNote").value = "";
+
+    renderTrainingCalendar();
+    renderPlannedWorkouts();
+
+    status(
+      "Trening dodany do kalendarza."
+    );
+
+  };
+
+}
+
+function renderTrainingCalendar() {
+
+  const box =
+    $("trainingCalendar");
+
+  if (!box) return;
+
+  const months = {};
+
+  trainingPlan.forEach(item => {
+
+    const month =
+      item.date.slice(
+        0,
+        7
+      );
+
+    if (!months[month]) {
+      months[month] = [];
+    }
+
+    months[month].push(item);
+
+  });
+
+  const monthKeys =
+    Object.keys(months)
+      .sort();
+
+  if (!monthKeys.length) {
+
+    box.innerHTML = `
+      <p style="color:#777">
+        Kalendarz jest pusty.
+      </p>
+    `;
+
+    return;
+  }
+
+  box.innerHTML =
+    monthKeys
+      .map(month => {
+
+        const monthItems =
+          months[month]
+            .sort(
+              (a,b) =>
+                a.date.localeCompare(
+                  b.date
+                )
+            );
+
+        return `
+          <div
+            style="
+              margin-bottom:24px;
+            "
+          >
+
+            <h3>
+              ${esc(month)}
+            </h3>
+
+            ${
+              monthItems
+                .map(item => {
+
+                  return `
+                    <div
+                      style="
+                        padding:14px;
+                        border-radius:16px;
+                        background:#f5f6fa;
+                        margin:8px 0;
+                      "
+                    >
+
+                      <strong>
+                        ${esc(item.date)}
+                      </strong>
+
+                      ·
+
+                      <strong>
+                        ${esc(item.type)}
+                      </strong>
+
+                      ${
+                        item.name
+                          ? ` — ${esc(item.name)}`
+                          : ""
+                      }
+
+                      ${
+                        item.calories
+                          ? `<br><small>~${fmt(item.calories)} kcal</small>`
+                          : ""
+                      }
+
+                    </div>
+                  `;
+
+                })
+                .join("")
+            }
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+}
+
+function renderPlannedWorkouts() {
+
+  const box =
+    $("plannedWorkouts");
+
+  if (!box) return;
+
+  if (!workouts.length) {
+
+    box.innerHTML =
+      `<p style="color:#777">
+        Brak odbytych treningów.
+      </p>`;
+
+    return;
+  }
+
+  const sorted =
+    [...workouts]
+      .sort(
+        (a,b) =>
+          String(b.date)
+            .localeCompare(
+              String(a.date)
+            )
+      );
+
+  box.innerHTML =
+    sorted
+      .map(workout => {
+
+        return `
+          <div
+            style="
+              padding:15px;
+              border-radius:16px;
+              background:#f5f6fa;
+              margin:8px 0;
+            "
+          >
+
+            <strong>
+              ${esc(workout.date)}
+            </strong>
+
+            ·
+
+            ${esc(
+              workout.type ||
+              "Trening"
+            )}
+
+            ${
+              workout.distance
+                ? ` · ${fmt(workout.distance)} km`
+                : ""
+            }
+
+            ${
+              workout.time
+                ? ` · ${esc(workout.time)}`
+                : ""
+            }
+
+            ${
+              workout.calories
+                ? ` · ${fmt(workout.calories)} kcal`
+                : ""
+            }
+
+          </div>
+        `;
+
+      })
+      .join("");
+
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+document.addEventListener(
+  "DOMContentLoaded",
+  () => {
+
+    if (isTrainingPage()) {
+
+      loadAll();
+
+      renderTrainingPage();
+
+      return;
+    }
+
+    loadAll();
+
+    setupImport();
+
+    setupEvents();
+
+    setupTrainingNavigation();
+
+    createWorkoutSection();
+
+    renderAll();
+
+    /*
+       Dopiero po wyrenderowaniu
+       próbujemy zamienić istniejące
+       sekcje na zwijane.
+    */
+
+    setTimeout(
+      setupCollapsibles,
+      50
+    );
+
+    console.log(
+      "FuelTrack AI — Fitatu:",
+      foodRows.length
+    );
+
+    console.log(
+      "FuelTrack AI — treningi:",
+      workouts.length
+    );
+
+  }
+);
