@@ -82,7 +82,7 @@
       background: #3565e8;
       color: white;
       font-weight: 800;
-      box-shadow: 0 8px 20px rgba(53,101,232,.2);
+      box-shadow: 0 8px 20px rgba(53, 101, 232, .2);
     }
 
     .secondary-btn {
@@ -108,7 +108,7 @@
       border-radius: 28px;
       padding: 24px;
       margin-bottom: 18px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.045);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .045);
     }
 
     .dark-card {
@@ -166,7 +166,7 @@
       border-radius: 26px;
       padding: 25px;
       min-height: 145px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.045);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .045);
     }
 
     .nav-icon {
@@ -467,7 +467,7 @@
       color: white;
       font-weight: 700;
       text-align: center;
-      box-shadow: 0 8px 30px rgba(0,0,0,.2);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
     }
 
     @media (max-width: 650px) {
@@ -530,73 +530,148 @@
 </head>
 
 <body>
+
   <main class="app">
 
     <!-- =========================
          STRONA GŁÓWNA
     ========================== -->
+
     <section id="homePage">
 
       <header class="topbar">
+
         <div>
           <div class="brand">FUELTRACK AI</div>
           <h1>Twój dzień</h1>
         </div>
+
       </header>
 
+
       <section class="card dark-card">
-        <div class="summary-title">Ostatni zaraportowany dzień</div>
-        <div id="homeDate" class="summary-date">Brak danych</div>
+
+        <div class="summary-title">
+          Ostatni zaraportowany dzień
+        </div>
+
+        <div id="homeDate" class="summary-date">
+          Brak danych
+        </div>
 
         <div class="summary-grid">
-          <div class="summary-item">
-            <div class="summary-label">Przyjęte kalorie</div>
-            <div id="homeCalories" class="summary-value">0 kcal</div>
-          </div>
 
           <div class="summary-item">
-            <div class="summary-label">Spalone w treningu</div>
-            <div id="homeBurned" class="summary-value">0 kcal</div>
+            <div class="summary-label">
+              Przyjęte kalorie
+            </div>
+
+            <div id="homeCalories" class="summary-value">
+              0 kcal
+            </div>
           </div>
 
-          <div class="summary-item">
-            <div class="summary-label">Białko</div>
-            <div id="homeProtein" class="summary-value">0 g</div>
-          </div>
 
           <div class="summary-item">
-            <div class="summary-label">Węglowodany</div>
-            <div id="homeCarbs" class="summary-value">0 g</div>
+            <div class="summary-label">
+              Spalone w treningu
+            </div>
+
+            <div id="homeBurned" class="summary-value">
+              0 kcal
+            </div>
           </div>
 
-          <div class="summary-item">
-            <div class="summary-label">Tłuszcz</div>
-            <div id="homeFat" class="summary-value">0 g</div>
-          </div>
 
           <div class="summary-item">
-            <div class="summary-label">Różnica względem celu</div>
-            <div id="homeBalance" class="summary-value">0 kcal</div>
+            <div class="summary-label">
+              Białko
+            </div>
+
+            <div id="homeProtein" class="summary-value">
+              0 g
+            </div>
           </div>
+
+
+          <div class="summary-item">
+            <div class="summary-label">
+              Węglowodany
+            </div>
+
+            <div id="homeCarbs" class="summary-value">
+              0 g
+            </div>
+          </div>
+
+
+          <div class="summary-item">
+            <div class="summary-label">
+              Tłuszcz
+            </div>
+
+            <div id="homeFat" class="summary-value">
+              0 g
+            </div>
+          </div>
+
+
+          <div class="summary-item">
+            <div class="summary-label">
+              Różnica względem celu
+            </div>
+
+            <div id="homeBalance" class="summary-value">
+              0 kcal
+            </div>
+          </div>
+
         </div>
+
       </section>
+
 
       <section class="nav-grid">
 
-        <button class="nav-card" id="goNutrition">
-          <div class="nav-icon">🍽️</div>
-          <div class="nav-title">Żywienie</div>
+        <button
+          class="nav-card"
+          id="goNutrition"
+          type="button"
+        >
+
+          <div class="nav-icon">
+            🍽️
+          </div>
+
+          <div class="nav-title">
+            Żywienie
+          </div>
+
           <div class="nav-description">
             Fitatu, posiłki, makro, mikro i historia.
           </div>
+
         </button>
 
-        <button class="nav-card" id="goTraining">
-          <div class="nav-icon">🏃</div>
-          <div class="nav-title">Treningi</div>
+
+        <button
+          class="nav-card"
+          id="goTraining"
+          type="button"
+        >
+
+          <div class="nav-icon">
+            🏃
+          </div>
+
+          <div class="nav-title">
+            Treningi
+          </div>
+
           <div class="nav-description">
             Kalendarz, planowanie i zapis wykonanych treningów.
           </div>
+
         </button>
 
       </section>
@@ -607,21 +682,42 @@
     <!-- =========================
          STRONA ŻYWIENIA
     ========================== -->
-    <section id="nutritionPage" class="hidden">
 
-      <button class="back-btn" id="backHomeNutrition">
+    <section
+      id="nutritionPage"
+      class="hidden"
+    >
+
+      <button
+        class="back-btn"
+        id="backHomeNutrition"
+        type="button"
+      >
         ← Strona główna
       </button>
 
+
       <header class="topbar">
+
         <div>
-          <div class="brand">FUELTRACK AI</div>
-          <h1>Żywienie</h1>
+          <div class="brand">
+            FUELTRACK AI
+          </div>
+
+          <h1>
+            Żywienie
+          </h1>
         </div>
 
-        <button class="primary-btn" id="importBtn">
+
+        <button
+          class="primary-btn"
+          id="importBtn"
+          type="button"
+        >
           + Import Fitatu
         </button>
+
 
         <input
           id="fileInput"
@@ -629,75 +725,179 @@
           accept=".csv,text/csv"
           class="hidden"
         >
+
       </header>
 
 
       <!-- DZIEŃ + BILANS -->
+
       <section class="card dark-card">
 
-        <div class="day-label">Wybrany dzień</div>
-        <div id="selectedDateLabel" class="day-date">
+        <div class="day-label">
+          Wybrany dzień
+        </div>
+
+        <div
+          id="selectedDateLabel"
+          class="day-date"
+        >
           Brak danych
         </div>
 
-        <select id="dateSelect" style="margin-top:18px;"></select>
+
+        <select
+          id="dateSelect"
+          style="margin-top:18px;"
+        ></select>
+
 
         <div class="macro-grid">
 
           <div class="macro-card">
+
             <div class="macro-top">
-              <span class="macro-name">🔥 Kalorie</span>
-              <span id="kcal" class="macro-number">0</span>
+
+              <span class="macro-name">
+                🔥 Kalorie
+              </span>
+
+              <span
+                id="kcal"
+                class="macro-number"
+              >
+                0
+              </span>
+
             </div>
+
+
             <div class="progress-track">
-              <div id="kcalBar" class="progress-bar"></div>
+
+              <div
+                id="kcalBar"
+                class="progress-bar"
+              ></div>
+
             </div>
+
           </div>
 
-          <div class="macro-card">
-            <div class="macro-top">
-              <span class="macro-name">🥩 Białko</span>
-              <span id="protein" class="macro-number">0</span>
-            </div>
-            <div class="progress-track">
-              <div id="proteinBar" class="progress-bar"></div>
-            </div>
-          </div>
 
           <div class="macro-card">
+
             <div class="macro-top">
-              <span class="macro-name">🍚 Węglowodany</span>
-              <span id="carbs" class="macro-number">0</span>
+
+              <span class="macro-name">
+                🥩 Białko
+              </span>
+
+              <span
+                id="protein"
+                class="macro-number"
+              >
+                0
+              </span>
+
             </div>
+
+
             <div class="progress-track">
-              <div id="carbsBar" class="progress-bar"></div>
+
+              <div
+                id="proteinBar"
+                class="progress-bar"
+              ></div>
+
             </div>
+
           </div>
 
+
           <div class="macro-card">
+
             <div class="macro-top">
-              <span class="macro-name">🥑 Tłuszcz</span>
-              <span id="fat" class="macro-number">0</span>
+
+              <span class="macro-name">
+                🍚 Węglowodany
+              </span>
+
+              <span
+                id="carbs"
+                class="macro-number"
+              >
+                0
+              </span>
+
             </div>
+
+
             <div class="progress-track">
-              <div id="fatBar" class="progress-bar"></div>
+
+              <div
+                id="carbsBar"
+                class="progress-bar"
+              ></div>
+
             </div>
+
+          </div>
+
+
+          <div class="macro-card">
+
+            <div class="macro-top">
+
+              <span class="macro-name">
+                🥑 Tłuszcz
+              </span>
+
+              <span
+                id="fat"
+                class="macro-number"
+              >
+                0
+              </span>
+
+            </div>
+
+
+            <div class="progress-track">
+
+              <div
+                id="fatBar"
+                class="progress-bar"
+              ></div>
+
+            </div>
+
           </div>
 
         </div>
+
       </section>
 
 
       <!-- POSIŁKI -->
+
       <section class="card">
 
         <div class="section-header">
-          <h2>Posiłki</h2>
 
-          <button class="secondary-btn" id="copyBtn">
+          <h2>
+            Posiłki
+          </h2>
+
+
+          <button
+            class="secondary-btn"
+            id="copyBtn"
+            type="button"
+          >
             📋 Kopiuj pełny raport
           </button>
+
         </div>
+
 
         <div id="meals"></div>
 
@@ -705,20 +905,43 @@
 
 
       <!-- MAKRO I MIKRO -->
+
       <section class="card">
 
-        <button class="collapse-header" data-target="macroMicroContent">
-          <span>Makro i mikro</span>
-          <span class="collapse-arrow">⌄</span>
+        <button
+          class="collapse-header"
+          data-target="macroMicroContent"
+          type="button"
+        >
+
+          <span>
+            Makro i mikro
+          </span>
+
+          <span class="collapse-arrow">
+            ⌄
+          </span>
+
         </button>
 
-        <div id="macroMicroContent" class="collapse-content">
 
-          <h3 style="margin-bottom:12px;">Makro</h3>
+        <div
+          id="macroMicroContent"
+          class="collapse-content"
+        >
+
+          <h3 style="margin-bottom:12px;">
+            Makro
+          </h3>
+
 
           <div id="macroDetails"></div>
 
-          <h3 style="margin:25px 0 12px;">Mikro</h3>
+
+          <h3 style="margin:25px 0 12px;">
+            Mikro
+          </h3>
+
 
           <div id="micros"></div>
 
@@ -728,11 +951,19 @@
 
 
       <!-- HISTORIA -->
+
       <section class="card">
 
-        <button class="collapse-header" data-target="historyContent">
+        <button
+          class="collapse-header"
+          data-target="historyContent"
+          type="button"
+        >
+
           <span>
+
             Historia
+
             <span
               id="dayCount"
               style="
@@ -747,13 +978,24 @@
             >
               0 dni
             </span>
+
           </span>
 
-          <span class="collapse-arrow">⌄</span>
+
+          <span class="collapse-arrow">
+            ⌄
+          </span>
+
         </button>
 
-        <div id="historyContent" class="collapse-content">
+
+        <div
+          id="historyContent"
+          class="collapse-content"
+        >
+
           <div id="history"></div>
+
         </div>
 
       </section>
@@ -764,29 +1006,73 @@
     <!-- =========================
          STRONA TRENINGÓW
     ========================== -->
-    <section id="trainingPage" class="hidden">
 
-      <button class="back-btn" id="backHomeTraining">
+    <section
+      id="trainingPage"
+      class="hidden"
+    >
+
+      <button
+        class="back-btn"
+        id="backHomeTraining"
+        type="button"
+      >
         ← Strona główna
       </button>
 
+
       <header style="margin-bottom:25px;">
-        <div class="brand">FUELTRACK AI</div>
-        <h1>Treningi</h1>
+
+        <div class="brand">
+          FUELTRACK AI
+        </div>
+
+        <h1>
+          Treningi
+        </h1>
+
       </header>
 
 
       <!-- KALENDARZ -->
+
       <section class="card">
 
         <div class="section-header">
-          <h2>Kalendarz treningów</h2>
 
-          <div style="display:flex;gap:8px;">
-            <button class="secondary-btn" id="prevMonth">←</button>
-            <button class="secondary-btn" id="nextMonth">→</button>
+          <h2>
+            Kalendarz treningów
+          </h2>
+
+
+          <div
+            style="
+              display:flex;
+              gap:8px;
+            "
+          >
+
+            <button
+              class="secondary-btn"
+              id="prevMonth"
+              type="button"
+            >
+              ←
+            </button>
+
+
+            <button
+              class="secondary-btn"
+              id="nextMonth"
+              type="button"
+            >
+              →
+            </button>
+
           </div>
+
         </div>
+
 
         <div
           id="calendarTitle"
@@ -797,8 +1083,11 @@
           "
         ></div>
 
+
         <div class="calendar">
+
           <div class="calendar-head">
+
             <div>Pon</div>
             <div>Wt</div>
             <div>Śr</div>
@@ -806,34 +1095,73 @@
             <div>Pt</div>
             <div>Sob</div>
             <div>Nd</div>
+
           </div>
 
-          <div id="calendarGrid" class="calendar-row"></div>
+
+          <div
+            id="calendarGrid"
+            class="calendar-row"
+          ></div>
+
         </div>
 
       </section>
 
 
       <!-- PLANOWANIE -->
+
       <section class="card">
 
         <div class="section-header">
-          <h2>Planowanie treningu</h2>
+
+          <h2>
+            Planowanie treningu
+          </h2>
+
         </div>
+
 
         <div class="form-grid">
 
-          <input id="planDate" type="date">
+          <input
+            id="planDate"
+            type="date"
+          >
+
 
           <select id="planType">
-            <option value="Easy">Easy</option>
-            <option value="Long">Long</option>
-            <option value="Interwały">Interwały</option>
-            <option value="Podbiegi">Podbiegi</option>
-            <option value="Siłownia">Siłownia</option>
-            <option value="Regeneracja">Regeneracja</option>
-            <option value="Inny">Inny</option>
+
+            <option value="Easy">
+              Easy
+            </option>
+
+            <option value="Long">
+              Long
+            </option>
+
+            <option value="Interwały">
+              Interwały
+            </option>
+
+            <option value="Podbiegi">
+              Podbiegi
+            </option>
+
+            <option value="Siłownia">
+              Siłownia
+            </option>
+
+            <option value="Regeneracja">
+              Regeneracja
+            </option>
+
+            <option value="Inny">
+              Inny
+            </option>
+
           </select>
+
 
           <input
             id="planName"
@@ -841,11 +1169,13 @@
             class="form-full"
           >
 
+
           <input
             id="planCalories"
             type="number"
             placeholder="Przypuszczalne spalone kcal"
           >
+
 
           <input
             id="planDistance"
@@ -854,6 +1184,7 @@
             placeholder="Planowany dystans km"
           >
 
+
           <textarea
             id="planNote"
             rows="3"
@@ -861,9 +1192,11 @@
             class="form-full"
           ></textarea>
 
+
           <button
             id="savePlanBtn"
             class="primary-btn form-full"
+            type="button"
           >
             + Dodaj do kalendarza
           </button>
@@ -874,26 +1207,45 @@
 
 
       <!-- WPROWADZANIE WYKONANEGO TRENINGU -->
+
       <section class="card">
 
         <div class="section-header">
-          <h2>Wykonane treningi</h2>
 
-          <button class="secondary-btn" id="addWorkoutBtn">
+          <h2>
+            Wykonane treningi
+          </h2>
+
+
+          <button
+            class="secondary-btn"
+            id="addWorkoutBtn"
+            type="button"
+          >
             + Dodaj trening
           </button>
+
         </div>
 
-        <div id="workoutForm" class="hidden">
+
+        <div
+          id="workoutForm"
+          class="hidden"
+        >
 
           <div class="form-grid">
 
-            <input id="wDate" type="date">
+            <input
+              id="wDate"
+              type="date"
+            >
+
 
             <input
               id="wType"
               placeholder="Rodzaj, np. Easy Run"
             >
+
 
             <input
               id="wDistance"
@@ -902,15 +1254,18 @@
               placeholder="Dystans km"
             >
 
+
             <input
               id="wTime"
               placeholder="Czas, np. 52:34"
             >
 
+
             <input
               id="wPace"
               placeholder="Tempo, np. 5:18/km"
             >
+
 
             <input
               id="wHr"
@@ -918,11 +1273,13 @@
               placeholder="Średnie HR"
             >
 
+
             <input
               id="wMaxHr"
               type="number"
               placeholder="Maksymalne HR"
             >
+
 
             <input
               id="wCalories"
@@ -930,17 +1287,20 @@
               placeholder="Spalone kcal"
             >
 
+
             <input
               id="wCadence"
               type="number"
               placeholder="Kadencja"
             >
 
+
             <input
               id="wElevation"
               type="number"
               placeholder="Przewyższenie m"
             >
+
 
             <textarea
               id="wNote"
@@ -949,10 +1309,13 @@
               class="form-full"
             ></textarea>
 
+
             <div class="form-full">
+
               <label style="font-weight:750;">
                 Screeny z Garmina — maks. 4
               </label>
+
 
               <input
                 id="wScreens"
@@ -962,19 +1325,28 @@
                 style="margin-top:8px;"
               >
 
-              <div id="screensPreview" class="screens-preview"></div>
+
+              <div
+                id="screensPreview"
+                class="screens-preview"
+              ></div>
+
             </div>
+
 
             <button
               id="saveWorkoutBtn"
               class="primary-btn"
+              type="button"
             >
               Zapisz trening
             </button>
 
+
             <button
               id="cancelWorkoutBtn"
               class="secondary-btn"
+              type="button"
             >
               Anuluj
             </button>
@@ -983,7 +1355,11 @@
 
         </div>
 
-        <div id="workouts" style="margin-top:18px;"></div>
+
+        <div
+          id="workouts"
+          style="margin-top:18px;"
+        ></div>
 
       </section>
 
@@ -991,8 +1367,19 @@
 
   </main>
 
-  <div id="status" class="status hidden"></div>
 
-  <script src="App.js"></script>
+  <div
+    id="status"
+    class="status hidden"
+  ></div>
+
+
+  <!-- =====================================================
+       LOGIKA APLIKACJI
+       Cała obecna logika znajduje się w TrainingPage.js
+  ====================================================== -->
+
+  <script src="TrainingPage.js"></script>
+
 </body>
 </html>
