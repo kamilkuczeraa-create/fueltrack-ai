@@ -1,33 +1,23 @@
-import React, { useEffect, useState } from "react";
-
 /* =========================================================
-   FUELTRACK AI
-   TRAINING PAGE
-   Wersja poprawiona
-
-   WSPÓLNE KLUCZE Z app.js:
-   - WORKOUT_KEY = fueltrack_workouts_v04
-   - PLAN_KEY    = fueltrack_training_plans_v01
-
-   Dodatkowo obsługa starego klucza:
-   fueltrack_training_plan_v01
+   FuelTrack AI — TrainingPage.js
+   Vanilla JS — zgodny z obecnym index.html
 ========================================================= */
 
 const WORKOUT_KEY = "fueltrack_workouts_v04";
-const PLAN_KEY = "fueltrack_training_plans_v01";
-const OLD_PLAN_KEY = "fueltrack_training_plan_v01";
+const PLAN_KEY = "fueltrack_training_plan_v01";
 
+let plannedWorkouts = loadJSON(PLAN_KEY, []);
+let completedWorkouts = loadJSON(WORKOUT_KEY, []);
+
+let calendarDate = new Date();
+let selectedWorkoutScreens = [];
 
 /* =========================================================
-   POMOCNICZE
+   HELPERS
 ========================================================= */
 
 function num(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return 0;
   }
 
@@ -40,1644 +30,1342 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
-
 function fmt(value) {
   return Number(value || 0).toLocaleString("pl-PL", {
     maximumFractionDigits: 2
   });
 }
 
-
 function esc(value) {
-  return String(value ?? "");
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&quot;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
-
 
 function getToday() {
   const d = new Date();
 
-  const year = d.getFullYear();
-
-  const month = String(
-    d.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    d.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
+  ].join("-");
 }
-
 
 function formatDate(date) {
   if (!date) return "";
 
-  const parts = date.split("-");
+  const parts = String(date).split("-");
 
-  if (parts.length !== 3) {
-    return date;
-  }
+  if (parts.length !== 3) return date;
 
   return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
-
 function loadJSON(key, fallback) {
   try {
-    const raw =
-      localStorage.getItem(key);
+    const raw = localStorage.getItem(key);
 
-    if (!raw) {
-      return fallback;
-    }
+    if (!raw) return fallback;
 
-    const parsed =
-      JSON.parse(raw);
+    const parsed = JSON.parse(raw);
 
     return parsed;
-  } catch {
+  } catch (error) {
+    console.error("Błąd odczytu localStorage:", error);
     return fallback;
   }
 }
 
+function saveData() {
+  localStorage.setItem(
+    PLAN_KEY,
+    JSON.stringify(plannedWorkouts)
+  );
 
-/* =========================================================
-   MIGRACJA PLANÓW
-========================================================= */
-
-function loadPlans() {
-
-  /*
-     Najpierw prawidłowy, wspólny klucz.
-  */
-
-  const current =
-    loadJSON(
-      PLAN_KEY,
-      null
-    );
-
-  if (
-    Array.isArray(current)
-  ) {
-    return current;
-  }
-
-
-  /*
-     Jeżeli nie ma danych pod nowym kluczem,
-     sprawdzamy stary klucz.
-  */
-
-  const old =
-    loadJSON(
-      OLD_PLAN_KEY,
-      null
-    );
-
-  if (
-    Array.isArray(old)
-  ) {
-
-    /*
-       Od razu przenosimy dane
-       do prawidłowego klucza.
-    */
-
-    localStorage.setItem(
-      PLAN_KEY,
-      JSON.stringify(old)
-    );
-
-    return old;
-  }
-
-
-  return [];
+  localStorage.setItem(
+    WORKOUT_KEY,
+    JSON.stringify(completedWorkouts)
+  );
 }
 
+function showStatus(message, duration = 2500) {
+  const status = document.getElementById("status");
+
+  if (!status) return;
+
+  status.textContent = message;
+  status.classList.remove("hidden");
+
+  clearTimeout(showStatus.timer);
+
+  showStatus.timer = setTimeout(() => {
+    status.classList.add("hidden");
+  }, duration);
+}
 
 /* =========================================================
-   KOMPONENT
+   NAWIGACJA
 ========================================================= */
 
-export default function TrainingPage() {
+function showPage(page) {
+  const home = document.getElementById("homePage");
+  const nutrition = document.getElementById("nutritionPage");
+  const training = document.getElementById("trainingPage");
 
-  /* =======================================================
-     DATA
-  ======================================================= */
+  if (home) home.classList.add("hidden");
+  if (nutrition) nutrition.classList.add("hidden");
+  if (training) training.classList.add("hidden");
 
-  const [
-    selectedDate,
-    setSelectedDate
-  ] = useState(
-    getToday()
+  if (page === "home" && home) {
+    home.classList.remove("hidden");
+  }
+
+  if (page === "nutrition" && nutrition) {
+    nutrition.classList.remove("hidden");
+  }
+
+  if (page === "training" && training) {
+    training.classList.remove("hidden");
+    renderCalendar();
+    renderWorkouts();
+  }
+}
+
+function setupNavigation() {
+  const goTraining = document.getElementById("goTraining");
+  const goNutrition = document.getElementById("goNutrition");
+
+  const backHomeTraining =
+    document.getElementById("backHomeTraining");
+
+  const backHomeNutrition =
+    document.getElementById("backHomeNutrition");
+
+  if (goTraining) {
+    goTraining.addEventListener("click", () => {
+      showPage("training");
+    });
+  }
+
+  if (goNutrition) {
+    goNutrition.addEventListener("click", () => {
+      showPage("nutrition");
+    });
+  }
+
+  if (backHomeTraining) {
+    backHomeTraining.addEventListener("click", () => {
+      showPage("home");
+      renderHomeSummary();
+    });
+  }
+
+  if (backHomeNutrition) {
+    backHomeNutrition.addEventListener("click", () => {
+      showPage("home");
+      renderHomeSummary();
+    });
+  }
+}
+
+/* =========================================================
+   PLANOWANIE TRENINGÓW
+========================================================= */
+
+function setupPlanForm() {
+  const planDate = document.getElementById("planDate");
+
+  if (planDate) {
+    planDate.value = getToday();
+  }
+
+  const savePlanBtn =
+    document.getElementById("savePlanBtn");
+
+  if (savePlanBtn) {
+    savePlanBtn.addEventListener(
+      "click",
+      addPlannedWorkout
+    );
+  }
+}
+
+function addPlannedWorkout() {
+  const date =
+    document.getElementById("planDate")?.value ||
+    getToday();
+
+  const type =
+    document.getElementById("planType")?.value ||
+    "Easy";
+
+  const name =
+    document.getElementById("planName")?.value.trim() ||
+    "";
+
+  const calories =
+    num(
+      document.getElementById("planCalories")?.value
+    );
+
+  const distance =
+    num(
+      document.getElementById("planDistance")?.value
+    );
+
+  const note =
+    document.getElementById("planNote")?.value.trim() ||
+    "";
+
+  if (!date) {
+    alert("Wybierz datę treningu.");
+    return;
+  }
+
+  if (!name && !distance && !note) {
+    alert(
+      "Wpisz nazwę, dystans albo opis treningu."
+    );
+    return;
+  }
+
+  const workout = {
+    id:
+      Date.now().toString() +
+      Math.random().toString(36).slice(2),
+
+    date,
+    type,
+    name,
+    calories,
+    distance,
+    note
+  };
+
+  plannedWorkouts.push(workout);
+
+  saveData();
+
+  clearPlanForm();
+
+  renderCalendar();
+
+  showStatus(
+    `Dodano trening do planu: ${formatDate(date)}`
   );
+}
 
+function clearPlanForm() {
+  const fields = [
+    "planName",
+    "planCalories",
+    "planDistance",
+    "planNote"
+  ];
 
-  /* =======================================================
-     DANE
-  ======================================================= */
+  fields.forEach(id => {
+    const el = document.getElementById(id);
 
-  const [
-    plannedWorkouts,
-    setPlannedWorkouts
-  ] = useState(
-    () => loadPlans()
-  );
+    if (el) el.value = "";
+  });
 
+  const date =
+    document.getElementById("planDate");
 
-  const [
-    completedWorkouts,
-    setCompletedWorkouts
-  ] = useState(
-    () =>
-      loadJSON(
-        WORKOUT_KEY,
-        []
-      )
-  );
-
-
-  /* =======================================================
-     WIDOCZNOŚĆ FORMULARZY
-  ======================================================= */
-
-  const [
-    showPlanForm,
-    setShowPlanForm
-  ] = useState(false);
-
-
-  const [
-    showCompletedForm,
-    setShowCompletedForm
-  ] = useState(false);
-
-
-  /* =======================================================
-     PLANOWANY TRENING
-  ======================================================= */
-
-  const [
-    planType,
-    setPlanType
-  ] = useState("Easy");
-
-
-  const [
-    planCalories,
-    setPlanCalories
-  ] = useState("");
-
-
-  const [
-    planDistance,
-    setPlanDistance
-  ] = useState("");
-
-
-  const [
-    planNote,
-    setPlanNote
-  ] = useState("");
-
-
-  /* =======================================================
-     WYKONANY TRENING
-  ======================================================= */
-
-  const [
-    wType,
-    setWType
-  ] = useState("");
-
-
-  const [
-    wDistance,
-    setWDistance
-  ] = useState("");
-
-
-  const [
-    wTime,
-    setWTime
-  ] = useState("");
-
-
-  const [
-    wPace,
-    setWPace
-  ] = useState("");
-
-
-  const [
-    wHr,
-    setWHr
-  ] = useState("");
-
-
-  const [
-    wMaxHr,
-    setWMaxHr
-  ] = useState("");
-
-
-  const [
-    wCalories,
-    setWCalories
-  ] = useState("");
-
-
-  const [
-    wCadence,
-    setWCadence
-  ] = useState("");
-
-
-  const [
-    wElevation,
-    setWElevation
-  ] = useState("");
-
-
-  const [
-    wNote,
-    setWNote
-  ] = useState("");
-
-
-  /* =======================================================
-     ZAPIS PLANÓW
-  ======================================================= */
-
-  useEffect(() => {
-
-    localStorage.setItem(
-      PLAN_KEY,
-      JSON.stringify(
-        plannedWorkouts
-      )
-    );
-
-  }, [plannedWorkouts]);
-
-
-  /* =======================================================
-     ZAPIS WYKONANYCH TRENINGÓW
-  ======================================================= */
-
-  useEffect(() => {
-
-    localStorage.setItem(
-      WORKOUT_KEY,
-      JSON.stringify(
-        completedWorkouts
-      )
-    );
-
-  }, [completedWorkouts]);
-
-
-  /* =======================================================
-     POWRÓT
-  ======================================================= */
-
-  function goHome() {
-
-    window.location.hash = "";
-
+  if (date) {
+    date.value = getToday();
   }
 
+  const type =
+    document.getElementById("planType");
 
-  /* =======================================================
-     DODANIE PLANOWANEGO TRENINGU
-  ======================================================= */
-
-  function addPlannedWorkout() {
-
-    if (!selectedDate) {
-
-      alert(
-        "Wybierz datę treningu."
-      );
-
-      return;
-    }
-
-
-    const workout = {
-
-      id:
-        Date.now().toString(),
-
-      date:
-        selectedDate,
-
-      type:
-        planType,
-
-      calories:
-        num(planCalories),
-
-      distance:
-        num(planDistance),
-
-      note:
-        planNote.trim()
-
-    };
-
-
-    setPlannedWorkouts(
-      prev => [
-        ...prev,
-        workout
-      ]
-    );
-
-
-    setPlanCalories("");
-
-    setPlanDistance("");
-
-    setPlanNote("");
-
-    setShowPlanForm(false);
+  if (type) {
+    type.value = "Easy";
   }
+}
 
-
-  /* =======================================================
-     USUNIĘCIE PLANOWANEGO TRENINGU
-  ======================================================= */
-
-  function deletePlannedWorkout(id) {
-
-    setPlannedWorkouts(
-      prev =>
-        prev.filter(
-          workout =>
-            String(workout.id) !==
-            String(id)
-        )
-    );
-  }
-
-
-  /* =======================================================
-     DODANIE WYKONANEGO TRENINGU
-  ======================================================= */
-
-  function addCompletedWorkout() {
-
-    if (
-      !wType &&
-      !wDistance &&
-      !wTime
-    ) {
-
-      alert(
-        "Wpisz przynajmniej rodzaj, dystans albo czas treningu."
-      );
-
-      return;
-    }
-
-
-    const workout = {
-
-      id:
-        Date.now().toString(),
-
-      date:
-        selectedDate,
-
-      type:
-        wType.trim() ||
-        "Trening",
-
-      distance:
-        num(wDistance),
-
-      time:
-        wTime.trim(),
-
-      pace:
-        wPace.trim(),
-
-      hr:
-        num(wHr),
-
-      maxHr:
-        num(wMaxHr),
-
-      calories:
-        num(wCalories),
-
-      cadence:
-        num(wCadence),
-
-      elevation:
-        num(wElevation),
-
-      note:
-        wNote.trim()
-
-    };
-
-
-    setCompletedWorkouts(
-      prev => [
-        ...prev,
-        workout
-      ]
-    );
-
-
-    /*
-       Czyszczenie formularza.
-    */
-
-    setWType("");
-
-    setWDistance("");
-
-    setWTime("");
-
-    setWPace("");
-
-    setWHr("");
-
-    setWMaxHr("");
-
-    setWCalories("");
-
-    setWCadence("");
-
-    setWElevation("");
-
-    setWNote("");
-
-    setShowCompletedForm(false);
-  }
-
-
-  /* =======================================================
-     USUNIĘCIE WYKONANEGO TRENINGU
-  ======================================================= */
-
-  function deleteCompletedWorkout(id) {
-
-    setCompletedWorkouts(
-      prev =>
-        prev.filter(
-          workout =>
-            String(workout.id) !==
-            String(id)
-        )
-    );
-  }
-
-
-  /* =======================================================
-     DANE WYBRANEGO DNIA
-  ======================================================= */
-
-  const plannedForDay =
+function deletePlannedWorkout(id) {
+  plannedWorkouts =
     plannedWorkouts.filter(
       workout =>
-        workout.date ===
-        selectedDate
+        String(workout.id) !== String(id)
     );
 
+  saveData();
 
-  const completedForDay =
+  renderCalendar();
+
+  showStatus("Usunięto zaplanowany trening.");
+}
+
+function getPlansForDate(date) {
+  return plannedWorkouts.filter(
+    workout => workout.date === date
+  );
+}
+
+/* =========================================================
+   KALENDARZ
+========================================================= */
+
+function setupCalendar() {
+  const prev =
+    document.getElementById("prevMonth");
+
+  const next =
+    document.getElementById("nextMonth");
+
+  if (prev) {
+    prev.addEventListener("click", () => {
+      calendarDate.setMonth(
+        calendarDate.getMonth() - 1
+      );
+
+      renderCalendar();
+    });
+  }
+
+  if (next) {
+    next.addEventListener("click", () => {
+      calendarDate.setMonth(
+        calendarDate.getMonth() + 1
+      );
+
+      renderCalendar();
+    });
+  }
+}
+
+function renderCalendar() {
+  const title =
+    document.getElementById("calendarTitle");
+
+  const grid =
+    document.getElementById("calendarGrid");
+
+  if (!title || !grid) return;
+
+  const year =
+    calendarDate.getFullYear();
+
+  const month =
+    calendarDate.getMonth();
+
+  title.textContent =
+    calendarDate.toLocaleDateString(
+      "pl-PL",
+      {
+        month: "long",
+        year: "numeric"
+      }
+    );
+
+  grid.innerHTML = "";
+
+  const firstDay =
+    new Date(year, month, 1);
+
+  let startDay =
+    firstDay.getDay();
+
+  // JS: niedziela = 0
+  // Kalendarz: poniedziałek = 0
+  startDay =
+    startDay === 0
+      ? 6
+      : startDay - 1;
+
+  const daysInMonth =
+    new Date(
+      year,
+      month + 1,
+      0
+    ).getDate();
+
+  const previousMonthDays =
+    new Date(
+      year,
+      month,
+      0
+    ).getDate();
+
+  const totalCells =
+    Math.ceil(
+      (startDay + daysInMonth) / 7
+    ) * 7;
+
+  for (
+    let index = 0;
+    index < totalCells;
+    index++
+  ) {
+    const cell =
+      document.createElement("div");
+
+    cell.className =
+      "calendar-day";
+
+    let dayNumber;
+    let date;
+    let isCurrentMonth = true;
+
+    if (index < startDay) {
+      dayNumber =
+        previousMonthDays -
+        startDay +
+        index +
+        1;
+
+      const d = new Date(
+        year,
+        month - 1,
+        dayNumber
+      );
+
+      date = dateToISO(d);
+      isCurrentMonth = false;
+    } else if (
+      index >=
+      startDay + daysInMonth
+    ) {
+      dayNumber =
+        index -
+        startDay -
+        daysInMonth +
+        1;
+
+      const d = new Date(
+        year,
+        month + 1,
+        dayNumber
+      );
+
+      date = dateToISO(d);
+      isCurrentMonth = false;
+    } else {
+      dayNumber =
+        index - startDay + 1;
+
+      const d = new Date(
+        year,
+        month,
+        dayNumber
+      );
+
+      date = dateToISO(d);
+    }
+
+    if (!isCurrentMonth) {
+      cell.style.opacity = "0.45";
+    }
+
+    const number =
+      document.createElement("div");
+
+    number.className =
+      "calendar-number";
+
+    number.textContent =
+      dayNumber;
+
+    cell.appendChild(number);
+
+    const plans =
+      getPlansForDate(date);
+
+    const workouts =
+      completedWorkouts.filter(
+        workout =>
+          workout.date === date
+      );
+
+    plans.forEach(workout => {
+      const event =
+        document.createElement("div");
+
+      event.className =
+        "calendar-event";
+
+      event.style.background =
+        "#e8edff";
+
+      event.style.color =
+        "#294da9";
+
+      event.innerHTML =
+        `🎯 ${esc(
+          workout.name ||
+          workout.type ||
+          "Trening"
+        )}`;
+
+      event.title =
+        workout.note || "";
+
+      cell.appendChild(event);
+    });
+
+    workouts.forEach(workout => {
+      const event =
+        document.createElement("div");
+
+      event.className =
+        "calendar-event";
+
+      event.style.background =
+        "#e4f6ed";
+
+      event.style.color =
+        "#17613d";
+
+      event.innerHTML =
+        `✓ ${esc(
+          workout.type ||
+          "Trening"
+        )}`;
+
+      cell.appendChild(event);
+    });
+
+    if (
+      date === getToday()
+    ) {
+      cell.style.border =
+        "2px solid #3565e8";
+    }
+
+    cell.addEventListener(
+      "click",
+      () => {
+        const planDate =
+          document.getElementById(
+            "planDate"
+          );
+
+        if (planDate) {
+          planDate.value = date;
+        }
+
+        const workoutDate =
+          document.getElementById(
+            "wDate"
+          );
+
+        if (workoutDate) {
+          workoutDate.value = date;
+        }
+
+        renderWorkouts(date);
+      }
+    );
+
+    grid.appendChild(cell);
+  }
+}
+
+function dateToISO(date) {
+  return [
+    date.getFullYear(),
+    String(
+      date.getMonth() + 1
+    ).padStart(2, "0"),
+    String(
+      date.getDate()
+    ).padStart(2, "0")
+  ].join("-");
+}
+
+/* =========================================================
+   WYKONANE TRENINGI
+========================================================= */
+
+function setupWorkoutForm() {
+  const addBtn =
+    document.getElementById(
+      "addWorkoutBtn"
+    );
+
+  const cancelBtn =
+    document.getElementById(
+      "cancelWorkoutBtn"
+    );
+
+  const saveBtn =
+    document.getElementById(
+      "saveWorkoutBtn"
+    );
+
+  if (addBtn) {
+    addBtn.addEventListener(
+      "click",
+      () => {
+        const form =
+          document.getElementById(
+            "workoutForm"
+          );
+
+        if (form) {
+          form.classList.toggle(
+            "hidden"
+          );
+        }
+
+        const date =
+          document.getElementById(
+            "wDate"
+          );
+
+        if (
+          date &&
+          !date.value
+        ) {
+          date.value = getToday();
+        }
+      }
+    );
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener(
+      "click",
+      () => {
+        clearWorkoutForm();
+
+        const form =
+          document.getElementById(
+            "workoutForm"
+          );
+
+        if (form) {
+          form.classList.add(
+            "hidden"
+          );
+        }
+      }
+    );
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener(
+      "click",
+      addCompletedWorkout
+    );
+  }
+
+  setupScreens();
+}
+
+function addCompletedWorkout() {
+  const date =
+    document.getElementById(
+      "wDate"
+    )?.value ||
+    getToday();
+
+  const type =
+    document.getElementById(
+      "wType"
+    )?.value.trim() ||
+    "Trening";
+
+  const distance =
+    num(
+      document.getElementById(
+        "wDistance"
+      )?.value
+    );
+
+  const time =
+    document.getElementById(
+      "wTime"
+    )?.value.trim() ||
+    "";
+
+  const pace =
+    document.getElementById(
+      "wPace"
+    )?.value.trim() ||
+    "";
+
+  const hr =
+    num(
+      document.getElementById(
+        "wHr"
+      )?.value
+    );
+
+  const maxHr =
+    num(
+      document.getElementById(
+        "wMaxHr"
+      )?.value
+    );
+
+  const calories =
+    num(
+      document.getElementById(
+        "wCalories"
+      )?.value
+    );
+
+  const cadence =
+    num(
+      document.getElementById(
+        "wCadence"
+      )?.value
+    );
+
+  const elevation =
+    num(
+      document.getElementById(
+        "wElevation"
+      )?.value
+    );
+
+  const note =
+    document.getElementById(
+      "wNote"
+    )?.value.trim() ||
+    "";
+
+  if (
+    !type &&
+    !distance &&
+    !time
+  ) {
+    alert(
+      "Wpisz przynajmniej rodzaj, dystans albo czas treningu."
+    );
+
+    return;
+  }
+
+  const workout = {
+    id:
+      Date.now().toString() +
+      Math.random().toString(36).slice(2),
+
+    date,
+    type,
+    distance,
+    time,
+    pace,
+    hr,
+    maxHr,
+    calories,
+    cadence,
+    elevation,
+    note,
+
+    // zachowanie screenów z Garmina
+    screens: selectedWorkoutScreens
+  };
+
+  completedWorkouts.push(
+    workout
+  );
+
+  saveData();
+
+  clearWorkoutForm();
+
+  const form =
+    document.getElementById(
+      "workoutForm"
+    );
+
+  if (form) {
+    form.classList.add(
+      "hidden"
+    );
+  }
+
+  renderCalendar();
+  renderWorkouts();
+
+  showStatus(
+    `Zapisano trening: ${formatDate(
+      date
+    )}`
+  );
+}
+
+function clearWorkoutForm() {
+  const fields = [
+    "wType",
+    "wDistance",
+    "wTime",
+    "wPace",
+    "wHr",
+    "wMaxHr",
+    "wCalories",
+    "wCadence",
+    "wElevation",
+    "wNote"
+  ];
+
+  fields.forEach(id => {
+    const el =
+      document.getElementById(id);
+
+    if (el) {
+      el.value = "";
+    }
+  });
+
+  const date =
+    document.getElementById(
+      "wDate"
+    );
+
+  if (date) {
+    date.value = getToday();
+  }
+
+  const file =
+    document.getElementById(
+      "wScreens"
+    );
+
+  if (file) {
+    file.value = "";
+  }
+
+  selectedWorkoutScreens = [];
+
+  renderScreensPreview();
+}
+
+function deleteCompletedWorkout(id) {
+  const confirmed =
+    confirm(
+      "Usunąć ten wykonany trening?"
+    );
+
+  if (!confirmed) return;
+
+  completedWorkouts =
     completedWorkouts.filter(
       workout =>
-        workout.date ===
-        selectedDate
+        String(workout.id) !==
+        String(id)
     );
 
+  saveData();
 
-  /* =======================================================
-     SUMA PLANOWANYCH KCAL
-  ======================================================= */
+  renderCalendar();
+  renderWorkouts();
 
-  const plannedCalories =
-    plannedForDay.reduce(
-      (sum, workout) =>
-        sum +
-        num(workout.calories),
-      0
+  showStatus(
+    "Usunięto wykonany trening."
+  );
+}
+
+/* =========================================================
+   SCREENY Z GARMINA
+========================================================= */
+
+function setupScreens() {
+  const input =
+    document.getElementById(
+      "wScreens"
     );
 
+  if (!input) return;
 
-  /* =======================================================
-     SUMA WYKONANYCH KCAL
-  ======================================================= */
+  input.addEventListener(
+    "change",
+    event => {
+      const files =
+        Array.from(
+          event.target.files || []
+        );
 
-  const completedCalories =
-    completedForDay.reduce(
-      (sum, workout) =>
-        sum +
-        num(workout.calories),
-      0
+      if (files.length > 4) {
+        alert(
+          "Możesz dodać maksymalnie 4 screeny."
+        );
+
+        input.value = "";
+        selectedWorkoutScreens = [];
+        renderScreensPreview();
+
+        return;
+      }
+
+      selectedWorkoutScreens = [];
+
+      files.forEach(
+        file => {
+          const reader =
+            new FileReader();
+
+          reader.onload = () => {
+            selectedWorkoutScreens.push(
+              reader.result
+            );
+
+            renderScreensPreview();
+          };
+
+          reader.readAsDataURL(file);
+        }
+      );
+    }
+  );
+}
+
+function renderScreensPreview() {
+  const preview =
+    document.getElementById(
+      "screensPreview"
     );
 
+  if (!preview) return;
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+  preview.innerHTML = "";
 
-  return (
+  selectedWorkoutScreens
+    .slice(0, 4)
+    .forEach(
+      src => {
+        const img =
+          document.createElement(
+            "img"
+          );
 
-    <div
-      style={{
-        maxWidth: 900,
-        margin: "0 auto",
-        padding: "18px",
-        fontFamily:
-          "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-        color: "#171717"
-      }}
-    >
+        img.src = src;
 
-      {/* ===================================================
-          POWRÓT
-      =================================================== */}
+        img.alt =
+          "Screen z Garmina";
 
-      <button
-        onClick={goHome}
-        style={{
-          border: 0,
-          borderRadius: 14,
-          padding: "11px 15px",
-          background: "#eeeeee",
-          fontWeight: 700,
-          marginBottom: 18
-        }}
-      >
-        ← Żywienie
-      </button>
+        preview.appendChild(
+          img
+        );
+      }
+    );
+}
 
+/* =========================================================
+   WYŚWIETLANIE TRENINGÓW
+========================================================= */
 
-      {/* ===================================================
-          GŁÓWNY KONTENER
-      =================================================== */}
+function renderWorkouts(filterDate = null) {
+  const container =
+    document.getElementById(
+      "workouts"
+    );
 
-      <div
-        style={{
-          background: "white",
-          borderRadius: 26,
-          padding: 22,
-          boxShadow:
-            "0 4px 20px rgba(0,0,0,.06)"
-        }}
-      >
+  if (!container) return;
 
-        <h1
-          style={{
-            marginTop: 0
-          }}
-        >
-          📅 Planowanie treningów
-        </h1>
+  let workouts =
+    [...completedWorkouts];
 
+  if (filterDate) {
+    workouts =
+      workouts.filter(
+        workout =>
+          workout.date ===
+          filterDate
+      );
+  }
 
-        <p
-          style={{
-            color: "#666",
-            marginTop: -8
-          }}
-        >
-          Planowane oraz wykonane treningi.
-        </p>
+  workouts.sort(
+    (a, b) =>
+      String(b.date).localeCompare(
+        String(a.date)
+      )
+  );
 
+  if (workouts.length === 0) {
+    container.innerHTML =
+      `<div class="empty">
+        Brak zapisanych treningów.
+      </div>`;
 
-        {/* =================================================
-            WYBRANY DZIEŃ
-        ================================================= */}
+    return;
+  }
 
-        <label
-          style={{
-            display: "block",
-            fontWeight: 700,
-            marginBottom: 7
-          }}
-        >
-          Wybrany dzień
-        </label>
+  container.innerHTML =
+    workouts
+      .map(
+        workout =>
+          renderWorkoutCard(
+            workout
+          )
+      )
+      .join("");
+}
 
+function renderWorkoutCard(
+  workout
+) {
+  const screens =
+    Array.isArray(
+      workout.screens
+    )
+      ? workout.screens
+      : [];
 
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={e =>
-            setSelectedDate(
-              e.target.value
-            )
-          }
-          className="training-page-input"
-        />
+  return `
+    <div class="workout-card">
 
+      <div class="workout-title">
+        🏃 ${esc(
+          workout.type ||
+          "Trening"
+        )}
 
-        <div
-          style={{
-            fontSize: 14,
-            color: "#777",
-            marginTop: -12,
-            marginBottom: 18
-          }}
-        >
-          {formatDate(selectedDate)}
-        </div>
-
-
-        {/* =================================================
-            SZYBKI WYBÓR DATY
-        ================================================= */}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(7, 1fr)",
-            gap: 6,
-            marginBottom: 25
-          }}
-        >
-
-          {Array
-            .from({
-              length: 7
-            })
-            .map(
-              (_, index) => {
-
-                const date =
-                  new Date();
-
-                date.setDate(
-                  date.getDate() -
-                  3 +
-                  index
-                );
-
-
-                const year =
-                  date.getFullYear();
-
-
-                const month =
-                  String(
-                    date.getMonth() + 1
-                  ).padStart(
-                    2,
-                    "0"
-                  );
-
-
-                const day =
-                  String(
-                    date.getDate()
-                  ).padStart(
-                    2,
-                    "0"
-                  );
-
-
-                const value =
-                  `${year}-${month}-${day}`;
-
-
-                return (
-
-                  <button
-                    key={value}
-                    onClick={() =>
-                      setSelectedDate(
-                        value
-                      )
-                    }
-                    style={{
-                      border: 0,
-                      borderRadius: 12,
-                      padding:
-                        "9px 3px",
-                      background:
-                        selectedDate ===
-                        value
-                          ? "#2463eb"
-                          : "#f1f2f5",
-                      color:
-                        selectedDate ===
-                        value
-                          ? "white"
-                          : "#222",
-                      fontWeight: 700,
-                      fontSize: 12
-                    }}
-                  >
-
-                    {date.toLocaleDateString(
-                      "pl-PL",
-                      {
-                        weekday:
-                          "short"
-                      }
-                    )}
-
-                    <br />
-
-                    {date.getDate()}
-
-                  </button>
-
-                );
-              }
-            )}
-
-        </div>
-
-
-        {/* =================================================
-            PLAN DNIA
-        ================================================= */}
-
-        <div
-          style={{
-            background: "#f5f6fa",
-            borderRadius: 20,
-            padding: 18,
-            marginBottom: 18
-          }}
-        >
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              alignItems: "center",
-              gap: 10
-            }}
-          >
-
-            <div>
-
-              <h2
-                style={{
-                  margin: 0
-                }}
-              >
-                🎯 Plan dnia
-              </h2>
-
-              {plannedCalories > 0 && (
-
-                <div
-                  style={{
-                    marginTop: 5,
-                    fontSize: 13,
-                    color: "#666"
-                  }}
-                >
-                  🔥 Planowane:
-                  {" "}
-                  {fmt(
-                    plannedCalories
-                  )}
-                  {" "}
-                  kcal
-                </div>
-
-              )}
-
-            </div>
-
-
-            <button
-              onClick={() =>
-                setShowPlanForm(
-                  !showPlanForm
-                )
-              }
-              style={{
-                border: 0,
-                borderRadius: 13,
-                padding:
-                  "11px 14px",
-                background: "#2463eb",
-                color: "white",
-                fontWeight: 700
-              }}
-            >
-              + Dodaj
-            </button>
-
-          </div>
-
-
-          {/* -----------------------------------------------
-              BRAK PLANÓW
-          ----------------------------------------------- */}
-
-          {plannedForDay.length === 0 && (
-
-            <p
-              style={{
-                color: "#777"
-              }}
-            >
-              Brak zaplanowanych treningów.
-            </p>
-
+        <div style="
+          font-size:13px;
+          color:#777e8d;
+          font-weight:600;
+          margin-top:4px;
+        ">
+          ${formatDate(
+            workout.date
           )}
+        </div>
+      </div>
 
+      <div class="workout-data">
 
-          {/* -----------------------------------------------
-              LISTA PLANÓW
-          ----------------------------------------------- */}
-
-          {plannedForDay.map(
-            workout => (
-
-              <div
-                key={workout.id}
-                style={{
-                  background: "white",
-                  borderRadius: 15,
-                  padding: 15,
-                  marginTop: 12
-                }}
-              >
-
-                <strong>
-                  {esc(
-                    workout.type
-                  )}
-                </strong>
-
-
-                {workout.distance > 0 && (
-
-                  <div
-                    style={{
-                      marginTop: 5
-                    }}
-                  >
-                    📏
-                    {" "}
-                    {fmt(
-                      workout.distance
-                    )}
-                    {" "}
-                    km
-                  </div>
-
-                )}
-
-
-                {workout.calories > 0 && (
-
-                  <div
-                    style={{
-                      marginTop: 5
-                    }}
-                  >
-                    🔥 około
-                    {" "}
-                    {fmt(
-                      workout.calories
-                    )}
-                    {" "}
-                    kcal
-                  </div>
-
-                )}
-
-
-                {workout.note && (
-
-                  <div
-                    style={{
-                      marginTop: 7,
-                      color: "#666"
-                    }}
-                  >
-                    {esc(
-                      workout.note
-                    )}
-                  </div>
-
-                )}
-
-
-                <button
-                  onClick={() =>
-                    deletePlannedWorkout(
-                      workout.id
-                    )
-                  }
-                  style={{
-                    marginTop: 10,
-                    border: 0,
-                    borderRadius: 9,
-                    padding:
-                      "7px 10px",
-                    background:
-                      "#fee4e2",
-                    color:
-                      "#b42318",
-                    fontWeight: 700
-                  }}
-                >
-                  Usuń
-                </button>
-
+        ${
+          workout.distance > 0
+            ? `
+              <div>
+                <small>Dystans</small><br>
+                <b>
+                  ${fmt(
+                    workout.distance
+                  )} km
+                </b>
               </div>
+            `
+            : ""
+        }
 
-            )
-          )}
-
-
-          {/* =================================================
-              FORMULARZ PLANU
-          ================================================= */}
-
-          {showPlanForm && (
-
-            <div
-              style={{
-                marginTop: 15,
-                background: "white",
-                borderRadius: 17,
-                padding: 16
-              }}
-            >
-
-              <h3>
-                Nowy trening w planie
-              </h3>
-
-
-              <select
-                value={planType}
-                onChange={e =>
-                  setPlanType(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              >
-
-                <option>
-                  Easy
-                </option>
-
-                <option>
-                  Long
-                </option>
-
-                <option>
-                  Interwały
-                </option>
-
-                <option>
-                  Podbiegi
-                </option>
-
-                <option>
-                  Tempo
-                </option>
-
-                <option>
-                  Siłownia
-                </option>
-
-                <option>
-                  Regeneracja
-                </option>
-
-                <option>
-                  Inny
-                </option>
-
-              </select>
-
-
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Dystans km"
-                value={planDistance}
-                onChange={e =>
-                  setPlanDistance(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Przypuszczalne kcal"
-                value={planCalories}
-                onChange={e =>
-                  setPlanCalories(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <textarea
-                placeholder="Notatka / szczegóły treningu"
-                rows="4"
-                value={planNote}
-                onChange={e =>
-                  setPlanNote(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <button
-                onClick={
-                  addPlannedWorkout
-                }
-                style={{
-                  width: "100%",
-                  marginTop: 4,
-                  border: 0,
-                  borderRadius: 13,
-                  padding: 14,
-                  background:
-                    "#16794b",
-                  color: "white",
-                  fontWeight: 700
-                }}
-              >
-                Zapisz w planie
-              </button>
-
-            </div>
-
-          )}
-
-        </div>
-
-
-        {/* =================================================
-            WYKONANE TRENINGI
-        ================================================= */}
-
-        <div
-          style={{
-            background: "#f5f6fa",
-            borderRadius: 20,
-            padding: 18
-          }}
-        >
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              alignItems: "center",
-              gap: 10
-            }}
-          >
-
-            <div>
-
-              <h2
-                style={{
-                  margin: 0
-                }}
-              >
-                🏃 Wykonane treningi
-              </h2>
-
-
-              {completedCalories > 0 && (
-
-                <div
-                  style={{
-                    marginTop: 5,
-                    fontSize: 13,
-                    color: "#666"
-                  }}
-                >
-                  🔥 Spalone:
-                  {" "}
-                  {fmt(
-                    completedCalories
+        ${
+          workout.time
+            ? `
+              <div>
+                <small>Czas</small><br>
+                <b>
+                  ${esc(
+                    workout.time
                   )}
-                  {" "}
-                  kcal
-                </div>
-
-              )}
-
-            </div>
-
-
-            <button
-              onClick={() =>
-                setShowCompletedForm(
-                  !showCompletedForm
-                )
-              }
-              style={{
-                border: 0,
-                borderRadius: 13,
-                padding:
-                  "11px 14px",
-                background:
-                  "#16794b",
-                color: "white",
-                fontWeight: 700
-              }}
-            >
-              + Dodaj
-            </button>
-
-          </div>
-
-
-          {/* -----------------------------------------------
-              BRAK TRENINGÓW
-          ----------------------------------------------- */}
-
-          {completedForDay.length === 0 && (
-
-            <p
-              style={{
-                color: "#777"
-              }}
-            >
-              Brak zapisanych treningów.
-            </p>
-
-          )}
-
-
-          {/* -----------------------------------------------
-              LISTA WYKONANYCH
-          ----------------------------------------------- */}
-
-          {completedForDay.map(
-            workout => (
-
-              <div
-                key={workout.id}
-                style={{
-                  background: "white",
-                  borderRadius: 15,
-                  padding: 15,
-                  marginTop: 12
-                }}
-              >
-
-                <strong>
-                  🏃
-                  {" "}
-                  {esc(
-                    workout.type
-                  )}
-                </strong>
-
-
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "1fr 1fr",
-                    gap: 10,
-                    marginTop: 12
-                  }}
-                >
-
-                  {workout.distance > 0 && (
-
-                    <div>
-                      <small>
-                        Dystans
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.distance
-                        )}
-                        {" "}
-                        km
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.time && (
-
-                    <div>
-                      <small>
-                        Czas
-                      </small>
-                      <br />
-                      <b>
-                        {esc(
-                          workout.time
-                        )}
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.pace && (
-
-                    <div>
-                      <small>
-                        Tempo
-                      </small>
-                      <br />
-                      <b>
-                        {esc(
-                          workout.pace
-                        )}
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.hr > 0 && (
-
-                    <div>
-                      <small>
-                        Śr. HR
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.hr
-                        )}
-                        {" "}
-                        bpm
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.maxHr > 0 && (
-
-                    <div>
-                      <small>
-                        Max HR
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.maxHr
-                        )}
-                        {" "}
-                        bpm
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.calories > 0 && (
-
-                    <div>
-                      <small>
-                        Kalorie
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.calories
-                        )}
-                        {" "}
-                        kcal
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.cadence > 0 && (
-
-                    <div>
-                      <small>
-                        Kadencja
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.cadence
-                        )}
-                        {" "}
-                        spm
-                      </b>
-                    </div>
-
-                  )}
-
-
-                  {workout.elevation > 0 && (
-
-                    <div>
-                      <small>
-                        Przewyższenie
-                      </small>
-                      <br />
-                      <b>
-                        {fmt(
-                          workout.elevation
-                        )}
-                        {" "}
-                        m
-                      </b>
-                    </div>
-
-                  )}
-
-                </div>
-
-
-                {workout.note && (
-
-                  <div
-                    style={{
-                      marginTop: 12,
-                      borderTop:
-                        "1px solid #eee",
-                      paddingTop: 10,
-                      color: "#555"
-                    }}
-                  >
-                    📝
-                    {" "}
-                    {esc(
-                      workout.note
-                    )}
-                  </div>
-
-                )}
-
-
-                <button
-                  onClick={() =>
-                    deleteCompletedWorkout(
-                      workout.id
-                    )
-                  }
-                  style={{
-                    marginTop: 12,
-                    border: 0,
-                    borderRadius: 9,
-                    padding:
-                      "7px 10px",
-                    background:
-                      "#fee4e2",
-                    color:
-                      "#b42318",
-                    fontWeight: 700
-                  }}
-                >
-                  Usuń
-                </button>
-
+                </b>
               </div>
+            `
+            : ""
+        }
 
-            )
-          )}
+        ${
+          workout.pace
+            ? `
+              <div>
+                <small>Tempo</small><br>
+                <b>
+                  ${esc(
+                    workout.pace
+                  )}
+                </b>
+              </div>
+            `
+            : ""
+        }
 
+        ${
+          workout.hr > 0
+            ? `
+              <div>
+                <small>Śr. HR</small><br>
+                <b>
+                  ${fmt(
+                    workout.hr
+                  )} bpm
+                </b>
+              </div>
+            `
+            : ""
+        }
 
-          {/* =================================================
-              FORMULARZ WYKONANEGO TRENINGU
-          ================================================= */}
+        ${
+          workout.maxHr > 0
+            ? `
+              <div>
+                <small>Max HR</small><br>
+                <b>
+                  ${fmt(
+                    workout.maxHr
+                  )} bpm
+                </b>
+              </div>
+            `
+            : ""
+        }
 
-          {showCompletedForm && (
+        ${
+          workout.calories > 0
+            ? `
+              <div>
+                <small>Spalone</small><br>
+                <b>
+                  ${fmt(
+                    workout.calories
+                  )} kcal
+                </b>
+              </div>
+            `
+            : ""
+        }
 
-            <div
-              style={{
-                marginTop: 15,
-                background: "white",
-                borderRadius: 17,
-                padding: 16
-              }}
-            >
+        ${
+          workout.cadence > 0
+            ? `
+              <div>
+                <small>Kadencja</small><br>
+                <b>
+                  ${fmt(
+                    workout.cadence
+                  )} spm
+                </b>
+              </div>
+            `
+            : ""
+        }
 
-              <h3>
-                Dodaj wykonany trening
-              </h3>
-
-
-              <input
-                placeholder="Rodzaj, np. Easy / Long / Interwały"
-                value={wType}
-                onChange={e =>
-                  setWType(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                step="0.01"
-                placeholder="Dystans km"
-                value={wDistance}
-                onChange={e =>
-                  setWDistance(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                placeholder="Czas, np. 52:34"
-                value={wTime}
-                onChange={e =>
-                  setWTime(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                placeholder="Tempo, np. 5:18/km"
-                value={wPace}
-                onChange={e =>
-                  setWPace(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Średnie tętno"
-                value={wHr}
-                onChange={e =>
-                  setWHr(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Maksymalne tętno"
-                value={wMaxHr}
-                onChange={e =>
-                  setWMaxHr(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Kalorie treningu"
-                value={wCalories}
-                onChange={e =>
-                  setWCalories(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Kadencja"
-                value={wCadence}
-                onChange={e =>
-                  setWCadence(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <input
-                type="number"
-                placeholder="Przewyższenie m"
-                value={wElevation}
-                onChange={e =>
-                  setWElevation(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <textarea
-                rows="4"
-                placeholder="Odczucia / notatka"
-                value={wNote}
-                onChange={e =>
-                  setWNote(
-                    e.target.value
-                  )
-                }
-                className="training-page-input"
-              />
-
-
-              <button
-                onClick={
-                  addCompletedWorkout
-                }
-                style={{
-                  width: "100%",
-                  marginTop: 4,
-                  border: 0,
-                  borderRadius: 13,
-                  padding: 14,
-                  background:
-                    "#16794b",
-                  color: "white",
-                  fontWeight: 700
-                }}
-              >
-                Zapisz trening
-              </button>
-
-            </div>
-
-          )}
-
-        </div>
+        ${
+          workout.elevation > 0
+            ? `
+              <div>
+                <small>Przewyższenie</small><br>
+                <b>
+                  ${fmt(
+                    workout.elevation
+                  )} m
+                </b>
+              </div>
+            `
+            : ""
+        }
 
       </div>
 
+      ${
+        workout.note
+          ? `
+            <div style="
+              margin-top:14px;
+              border-top:1px solid #e4e6eb;
+              padding-top:12px;
+              color:#555;
+              line-height:1.4;
+            ">
+              📝 ${esc(
+                workout.note
+              )}
+            </div>
+          `
+          : ""
+      }
 
-      {/* ===================================================
-          STYLE
-      =================================================== */}
+      ${
+        screens.length
+          ? `
+            <div class="screens-preview">
+              ${screens
+                .slice(0, 4)
+                .map(
+                  src =>
+                    `
+                    <img
+                      src="${src}"
+                      alt="Screen z Garmina"
+                    >
+                    `
+                )
+                .join("")}
+            </div>
+          `
+          : ""
+      }
 
-      <style>{`
-
-        input,
-        textarea,
-        select {
-          font-family: inherit;
-          font-size: 16px;
-        }
-
-        .training-page-input {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 13px;
-          border-radius: 12px;
-          border: 1px solid #ddd;
-          margin-bottom: 8px;
-          background: white;
-        }
-
-        button {
-          cursor: pointer;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        @media (max-width: 600px) {
-
-          .training-page-input {
-            font-size: 16px;
-          }
-
-        }
-
-      `}</style>
+      <button
+        type="button"
+        onclick="deleteCompletedWorkout('${esc(
+          workout.id
+        )}')"
+        style="
+          margin-top:14px;
+          border:0;
+          border-radius:10px;
+          padding:8px 11px;
+          background:#fee4e2;
+          color:#b42318;
+          font-weight:700;
+        "
+      >
+        Usuń
+      </button>
 
     </div>
-  );
+  `;
 }
+
+/* =========================================================
+   KALENDARZ — PLAN + WYKONANE
+========================================================= */
+
+function renderPlannedListForDate(
+  date
+) {
+  return getPlansForDate(date);
+}
+
+/* =========================================================
+   STRONA GŁÓWNA
+========================================================= */
+
+function renderHomeSummary() {
+  /*
+    Nie nadpisujemy tutaj danych żywieniowych.
+    Jeżeli istnieją już elementy obsługiwane
+    przez główną logikę żywieniową, treningi
+    dostarczają jedynie sumę spalonych kcal.
+  */
+
+  const lastWorkout =
+    [...completedWorkouts]
+      .sort(
+        (a, b) =>
+          String(b.date).localeCompare(
+            String(a.date)
+          )
+      )[0];
+
+  if (!lastWorkout) {
+    const burned =
+      document.getElementById(
+        "homeBurned"
+      );
+
+    if (burned) {
+      burned.textContent =
+        "0 kcal";
+    }
+
+    return;
+  }
+
+  const burned =
+    document.getElementById(
+      "homeBurned"
+    );
+
+  if (burned) {
+    const sameDay =
+      completedWorkouts.filter(
+        workout =>
+          workout.date ===
+          lastWorkout.date
+      );
+
+    const calories =
+      sameDay.reduce(
+        (sum, workout) =>
+          sum +
+          num(
+            workout.calories
+          ),
+        0
+      );
+
+    burned.textContent =
+      `${fmt(calories)} kcal`;
+  }
+}
+
+/* =========================================================
+   START
+========================================================= */
+
+function initTrainingPage() {
+  setupNavigation();
+
+  setupCalendar();
+
+  setupPlanForm();
+
+  setupWorkoutForm();
+
+  renderCalendar();
+
+  renderWorkouts();
+
+  renderHomeSummary();
+
+  /*
+    Hash pozwala również otwierać:
+    #training
+    #nutrition
+  */
+
+  if (
+    window.location.hash ===
+    "#training"
+  ) {
+    showPage("training");
+  } else if (
+    window.location.hash ===
+    "#nutrition"
+  ) {
+    showPage("nutrition");
+  } else {
+    showPage("home");
+  }
+}
+
+window.addEventListener(
+  "hashchange",
+  () => {
+    if (
+      window.location.hash ===
+      "#training"
+    ) {
+      showPage("training");
+    }
+
+    if (
+      window.location.hash ===
+      "#nutrition"
+    ) {
+      showPage("nutrition");
+    }
+
+    if (
+      window.location.hash === ""
+    ) {
+      showPage("home");
+    }
+  }
+);
+
+document.addEventListener(
+  "DOMContentLoaded",
+  initTrainingPage
+);
+
+/* =========================================================
+   PUBLIC FUNCTIONS
+========================================================= */
+
+window.deletePlannedWorkout =
+  deletePlannedWorkout;
+
+window.deleteCompletedWorkout =
+  deleteCompletedWorkout;
