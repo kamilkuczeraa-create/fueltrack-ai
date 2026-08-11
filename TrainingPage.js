@@ -1,10 +1,12 @@
 /* =========================================================
    FuelTrack AI — TrainingPage.js
-   Vanilla JS — zgodny z obecnym index.html
+   Vanilla JS
+   Wersja: v0.5
 ========================================================= */
 
 const WORKOUT_KEY = "fueltrack_workouts_v04";
 const PLAN_KEY = "fueltrack_training_plan_v01";
+const GOALS_KEY = "fueltrack_goals_v04";
 
 let plannedWorkouts = loadJSON(PLAN_KEY, []);
 let completedWorkouts = loadJSON(WORKOUT_KEY, []);
@@ -17,7 +19,11 @@ let selectedWorkoutScreens = [];
 ========================================================= */
 
 function num(value) {
-  if (value === null || value === undefined || value === "") {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
     return 0;
   }
 
@@ -40,7 +46,7 @@ function esc(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&quot;")
+    .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
@@ -75,7 +81,11 @@ function loadJSON(key, fallback) {
 
     return parsed;
   } catch (error) {
-    console.error("Błąd odczytu localStorage:", error);
+    console.error(
+      "Błąd odczytu localStorage:",
+      error
+    );
+
     return fallback;
   }
 }
@@ -92,8 +102,12 @@ function saveData() {
   );
 }
 
-function showStatus(message, duration = 2500) {
-  const status = document.getElementById("status");
+function showStatus(
+  message,
+  duration = 2500
+) {
+  const status =
+    document.getElementById("status");
 
   if (!status) return;
 
@@ -102,9 +116,10 @@ function showStatus(message, duration = 2500) {
 
   clearTimeout(showStatus.timer);
 
-  showStatus.timer = setTimeout(() => {
-    status.classList.add("hidden");
-  }, duration);
+  showStatus.timer =
+    setTimeout(() => {
+      status.classList.add("hidden");
+    }, duration);
 }
 
 /* =========================================================
@@ -112,16 +127,31 @@ function showStatus(message, duration = 2500) {
 ========================================================= */
 
 function showPage(page) {
-  const home = document.getElementById("homePage");
-  const nutrition = document.getElementById("nutritionPage");
-  const training = document.getElementById("trainingPage");
+  const home =
+    document.getElementById("homePage");
 
-  if (home) home.classList.add("hidden");
-  if (nutrition) nutrition.classList.add("hidden");
-  if (training) training.classList.add("hidden");
+  const nutrition =
+    document.getElementById("nutritionPage");
+
+  const training =
+    document.getElementById("trainingPage");
+
+  if (home) {
+    home.classList.add("hidden");
+  }
+
+  if (nutrition) {
+    nutrition.classList.add("hidden");
+  }
+
+  if (training) {
+    training.classList.add("hidden");
+  }
 
   if (page === "home" && home) {
     home.classList.remove("hidden");
+
+    renderHomeSummary();
   }
 
   if (page === "nutrition" && nutrition) {
@@ -130,45 +160,75 @@ function showPage(page) {
 
   if (page === "training" && training) {
     training.classList.remove("hidden");
+
     renderCalendar();
     renderWorkouts();
   }
 }
 
 function setupNavigation() {
-  const goTraining = document.getElementById("goTraining");
-  const goNutrition = document.getElementById("goNutrition");
+  const goTraining =
+    document.getElementById("goTraining");
+
+  const goNutrition =
+    document.getElementById("goNutrition");
 
   const backHomeTraining =
-    document.getElementById("backHomeTraining");
+    document.getElementById(
+      "backHomeTraining"
+    );
 
   const backHomeNutrition =
-    document.getElementById("backHomeNutrition");
+    document.getElementById(
+      "backHomeNutrition"
+    );
 
   if (goTraining) {
-    goTraining.addEventListener("click", () => {
-      showPage("training");
-    });
+    goTraining.addEventListener(
+      "click",
+      () => {
+        window.location.hash =
+          "training";
+
+        showPage("training");
+      }
+    );
   }
 
   if (goNutrition) {
-    goNutrition.addEventListener("click", () => {
-      showPage("nutrition");
-    });
+    goNutrition.addEventListener(
+      "click",
+      () => {
+        window.location.hash =
+          "nutrition";
+
+        showPage("nutrition");
+      }
+    );
   }
 
   if (backHomeTraining) {
-    backHomeTraining.addEventListener("click", () => {
-      showPage("home");
-      renderHomeSummary();
-    });
+    backHomeTraining.addEventListener(
+      "click",
+      () => {
+        window.location.hash = "";
+
+        showPage("home");
+        renderHomeSummary();
+      }
+    );
   }
 
   if (backHomeNutrition) {
-    backHomeNutrition.addEventListener("click", () => {
-      showPage("home");
-      renderHomeSummary();
-    });
+    backHomeNutrition.addEventListener(
+      "click",
+      () => {
+        window.location.hash = "";
+
+        showPage("home");
+        renderHomeSummary();
+      }
+    );
   }
 }
 
@@ -177,14 +237,17 @@ function setupNavigation() {
 ========================================================= */
 
 function setupPlanForm() {
-  const planDate = document.getElementById("planDate");
+  const planDate =
+    document.getElementById("planDate");
 
   if (planDate) {
     planDate.value = getToday();
   }
 
   const savePlanBtn =
-    document.getElementById("savePlanBtn");
+    document.getElementById(
+      "savePlanBtn"
+    );
 
   if (savePlanBtn) {
     savePlanBtn.addEventListener(
@@ -196,47 +259,69 @@ function setupPlanForm() {
 
 function addPlannedWorkout() {
   const date =
-    document.getElementById("planDate")?.value ||
+    document.getElementById(
+      "planDate"
+    )?.value ||
     getToday();
 
   const type =
-    document.getElementById("planType")?.value ||
+    document.getElementById(
+      "planType"
+    )?.value ||
     "Easy";
 
   const name =
-    document.getElementById("planName")?.value.trim() ||
+    document.getElementById(
+      "planName"
+    )?.value.trim() ||
     "";
 
   const calories =
     num(
-      document.getElementById("planCalories")?.value
+      document.getElementById(
+        "planCalories"
+      )?.value
     );
 
   const distance =
     num(
-      document.getElementById("planDistance")?.value
+      document.getElementById(
+        "planDistance"
+      )?.value
     );
 
   const note =
-    document.getElementById("planNote")?.value.trim() ||
+    document.getElementById(
+      "planNote"
+    )?.value.trim() ||
     "";
 
   if (!date) {
-    alert("Wybierz datę treningu.");
+    alert(
+      "Wybierz datę treningu."
+    );
+
     return;
   }
 
-  if (!name && !distance && !note) {
+  if (
+    !name &&
+    !distance &&
+    !note
+  ) {
     alert(
       "Wpisz nazwę, dystans albo opis treningu."
     );
+
     return;
   }
 
   const workout = {
     id:
       Date.now().toString() +
-      Math.random().toString(36).slice(2),
+      Math.random()
+        .toString(36)
+        .slice(2),
 
     date,
     type,
@@ -246,7 +331,9 @@ function addPlannedWorkout() {
     note
   };
 
-  plannedWorkouts.push(workout);
+  plannedWorkouts.push(
+    workout
+  );
 
   saveData();
 
@@ -255,7 +342,9 @@ function addPlannedWorkout() {
   renderCalendar();
 
   showStatus(
-    `Dodano trening do planu: ${formatDate(date)}`
+    `Dodano trening do planu: ${formatDate(
+      date
+    )}`
   );
 }
 
@@ -268,20 +357,27 @@ function clearPlanForm() {
   ];
 
   fields.forEach(id => {
-    const el = document.getElementById(id);
+    const el =
+      document.getElementById(id);
 
-    if (el) el.value = "";
+    if (el) {
+      el.value = "";
+    }
   });
 
   const date =
-    document.getElementById("planDate");
+    document.getElementById(
+      "planDate"
+    );
 
   if (date) {
     date.value = getToday();
   }
 
   const type =
-    document.getElementById("planType");
+    document.getElementById(
+      "planType"
+    );
 
   if (type) {
     type.value = "Easy";
@@ -292,19 +388,23 @@ function deletePlannedWorkout(id) {
   plannedWorkouts =
     plannedWorkouts.filter(
       workout =>
-        String(workout.id) !== String(id)
+        String(workout.id) !==
+        String(id)
     );
 
   saveData();
 
   renderCalendar();
 
-  showStatus("Usunięto zaplanowany trening.");
+  showStatus(
+    "Usunięto zaplanowany trening."
+  );
 }
 
 function getPlansForDate(date) {
   return plannedWorkouts.filter(
-    workout => workout.date === date
+    workout =>
+      workout.date === date
   );
 }
 
@@ -314,38 +414,52 @@ function getPlansForDate(date) {
 
 function setupCalendar() {
   const prev =
-    document.getElementById("prevMonth");
+    document.getElementById(
+      "prevMonth"
+    );
 
   const next =
-    document.getElementById("nextMonth");
+    document.getElementById(
+      "nextMonth"
+    );
 
   if (prev) {
-    prev.addEventListener("click", () => {
-      calendarDate.setMonth(
-        calendarDate.getMonth() - 1
-      );
+    prev.addEventListener(
+      "click",
+      () => {
+        calendarDate.setMonth(
+          calendarDate.getMonth() - 1
+        );
 
-      renderCalendar();
-    });
+        renderCalendar();
+      }
+    );
   }
 
   if (next) {
-    next.addEventListener("click", () => {
-      calendarDate.setMonth(
-        calendarDate.getMonth() + 1
-      );
+    next.addEventListener(
+      "click",
+      () => {
+        calendarDate.setMonth(
+          calendarDate.getMonth() + 1
+        );
 
-      renderCalendar();
-    });
+        renderCalendar();
+      }
+    );
   }
 }
 
 function renderCalendar() {
   const title =
-    document.getElementById("calendarTitle");
+    document.getElementById(
+      "calendarTitle"
+    );
 
   const grid =
-    document.getElementById("calendarGrid");
+    document.getElementById(
+      "calendarGrid"
+    );
 
   if (!title || !grid) return;
 
@@ -367,13 +481,15 @@ function renderCalendar() {
   grid.innerHTML = "";
 
   const firstDay =
-    new Date(year, month, 1);
+    new Date(
+      year,
+      month,
+      1
+    );
 
   let startDay =
     firstDay.getDay();
 
-  // JS: niedziela = 0
-  // Kalendarz: poniedziałek = 0
   startDay =
     startDay === 0
       ? 6
@@ -395,7 +511,8 @@ function renderCalendar() {
 
   const totalCells =
     Math.ceil(
-      (startDay + daysInMonth) / 7
+      (startDay + daysInMonth) /
+        7
     ) * 7;
 
   for (
@@ -404,14 +521,17 @@ function renderCalendar() {
     index++
   ) {
     const cell =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     cell.className =
       "calendar-day";
 
     let dayNumber;
     let date;
-    let isCurrentMonth = true;
+    let isCurrentMonth =
+      true;
 
     if (index < startDay) {
       dayNumber =
@@ -420,17 +540,22 @@ function renderCalendar() {
         index +
         1;
 
-      const d = new Date(
-        year,
-        month - 1,
-        dayNumber
-      );
+      const d =
+        new Date(
+          year,
+          month - 1,
+          dayNumber
+        );
 
-      date = dateToISO(d);
-      isCurrentMonth = false;
+      date =
+        dateToISO(d);
+
+      isCurrentMonth =
+        false;
     } else if (
       index >=
-      startDay + daysInMonth
+      startDay +
+        daysInMonth
     ) {
       dayNumber =
         index -
@@ -438,33 +563,44 @@ function renderCalendar() {
         daysInMonth +
         1;
 
-      const d = new Date(
-        year,
-        month + 1,
-        dayNumber
-      );
+      const d =
+        new Date(
+          year,
+          month + 1,
+          dayNumber
+        );
 
-      date = dateToISO(d);
-      isCurrentMonth = false;
+      date =
+        dateToISO(d);
+
+      isCurrentMonth =
+        false;
     } else {
       dayNumber =
-        index - startDay + 1;
+        index -
+        startDay +
+        1;
 
-      const d = new Date(
-        year,
-        month,
-        dayNumber
-      );
+      const d =
+        new Date(
+          year,
+          month,
+          dayNumber
+        );
 
-      date = dateToISO(d);
+      date =
+        dateToISO(d);
     }
 
     if (!isCurrentMonth) {
-      cell.style.opacity = "0.45";
+      cell.style.opacity =
+        "0.45";
     }
 
     const number =
-      document.createElement("div");
+      document.createElement(
+        "div"
+      );
 
     number.className =
       "calendar-number";
@@ -475,67 +611,71 @@ function renderCalendar() {
     cell.appendChild(number);
 
     const plans =
-      getPlansForDate(date);
+      getPlansForDate(
+        date
+      );
 
     const workouts =
       completedWorkouts.filter(
         workout =>
-          workout.date === date
+          workout.date ===
+          date
       );
 
-    plans.forEach(workout => {
-      const event =
-        document.createElement("div");
+    plans.forEach(
+      workout => {
+        const event =
+          document.createElement(
+            "div"
+          );
 
-      event.className =
-        "calendar-event";
+        event.className =
+          "calendar-event planned";
 
-      event.style.background =
-        "#e8edff";
+        event.innerHTML =
+          `🎯 ${esc(
+            workout.name ||
+            workout.type ||
+            "Trening"
+          )}`;
 
-      event.style.color =
-        "#294da9";
+        event.title =
+          workout.note || "";
 
-      event.innerHTML =
-        `🎯 ${esc(
-          workout.name ||
-          workout.type ||
-          "Trening"
-        )}`;
+        cell.appendChild(
+          event
+        );
+      }
+    );
 
-      event.title =
-        workout.note || "";
+    workouts.forEach(
+      workout => {
+        const event =
+          document.createElement(
+            "div"
+          );
 
-      cell.appendChild(event);
-    });
+        event.className =
+          "calendar-event completed";
 
-    workouts.forEach(workout => {
-      const event =
-        document.createElement("div");
+        event.innerHTML =
+          `✓ ${esc(
+            workout.type ||
+            "Trening"
+          )}`;
 
-      event.className =
-        "calendar-event";
-
-      event.style.background =
-        "#e4f6ed";
-
-      event.style.color =
-        "#17613d";
-
-      event.innerHTML =
-        `✓ ${esc(
-          workout.type ||
-          "Trening"
-        )}`;
-
-      cell.appendChild(event);
-    });
+        cell.appendChild(
+          event
+        );
+      }
+    );
 
     if (
       date === getToday()
     ) {
-      cell.style.border =
-        "2px solid #3565e8";
+      cell.classList.add(
+        "calendar-today"
+      );
     }
 
     cell.addEventListener(
@@ -547,7 +687,8 @@ function renderCalendar() {
           );
 
         if (planDate) {
-          planDate.value = date;
+          planDate.value =
+            date;
         }
 
         const workoutDate =
@@ -556,10 +697,13 @@ function renderCalendar() {
           );
 
         if (workoutDate) {
-          workoutDate.value = date;
+          workoutDate.value =
+            date;
         }
 
-        renderWorkouts(date);
+        renderWorkouts(
+          date
+        );
       }
     );
 
@@ -623,7 +767,8 @@ function setupWorkoutForm() {
           date &&
           !date.value
         ) {
-          date.value = getToday();
+          date.value =
+            getToday();
         }
       }
     );
@@ -747,7 +892,9 @@ function addCompletedWorkout() {
   const workout = {
     id:
       Date.now().toString() +
-      Math.random().toString(36).slice(2),
+      Math.random()
+        .toString(36)
+        .slice(2),
 
     date,
     type,
@@ -761,8 +908,8 @@ function addCompletedWorkout() {
     elevation,
     note,
 
-    // zachowanie screenów z Garmina
-    screens: selectedWorkoutScreens
+    screens:
+      selectedWorkoutScreens
   };
 
   completedWorkouts.push(
@@ -787,6 +934,8 @@ function addCompletedWorkout() {
   renderCalendar();
   renderWorkouts();
 
+  renderHomeSummary();
+
   showStatus(
     `Zapisano trening: ${formatDate(
       date
@@ -810,7 +959,9 @@ function clearWorkoutForm() {
 
   fields.forEach(id => {
     const el =
-      document.getElementById(id);
+      document.getElementById(
+        id
+      );
 
     if (el) {
       el.value = "";
@@ -823,7 +974,8 @@ function clearWorkoutForm() {
     );
 
   if (date) {
-    date.value = getToday();
+    date.value =
+      getToday();
   }
 
   const file =
@@ -835,12 +987,15 @@ function clearWorkoutForm() {
     file.value = "";
   }
 
-  selectedWorkoutScreens = [];
+  selectedWorkoutScreens =
+    [];
 
   renderScreensPreview();
 }
 
-function deleteCompletedWorkout(id) {
+function deleteCompletedWorkout(
+  id
+) {
   const confirmed =
     confirm(
       "Usunąć ten wykonany trening?"
@@ -851,7 +1006,9 @@ function deleteCompletedWorkout(id) {
   completedWorkouts =
     completedWorkouts.filter(
       workout =>
-        String(workout.id) !==
+        String(
+          workout.id
+        ) !==
         String(id)
     );
 
@@ -859,6 +1016,7 @@ function deleteCompletedWorkout(id) {
 
   renderCalendar();
   renderWorkouts();
+  renderHomeSummary();
 
   showStatus(
     "Usunięto wykonany trening."
@@ -882,7 +1040,8 @@ function setupScreens() {
     event => {
       const files =
         Array.from(
-          event.target.files || []
+          event.target.files ||
+            []
         );
 
       if (files.length > 4) {
@@ -891,13 +1050,17 @@ function setupScreens() {
         );
 
         input.value = "";
-        selectedWorkoutScreens = [];
+
+        selectedWorkoutScreens =
+          [];
+
         renderScreensPreview();
 
         return;
       }
 
-      selectedWorkoutScreens = [];
+      selectedWorkoutScreens =
+        [];
 
       files.forEach(
         file => {
@@ -912,7 +1075,9 @@ function setupScreens() {
             renderScreensPreview();
           };
 
-          reader.readAsDataURL(file);
+          reader.readAsDataURL(
+            file
+          );
         }
       );
     }
@@ -931,30 +1096,30 @@ function renderScreensPreview() {
 
   selectedWorkoutScreens
     .slice(0, 4)
-    .forEach(
-      src => {
-        const img =
-          document.createElement(
-            "img"
-          );
-
-        img.src = src;
-
-        img.alt =
-          "Screen z Garmina";
-
-        preview.appendChild(
-          img
+    .forEach(src => {
+      const img =
+        document.createElement(
+          "img"
         );
-      }
-    );
+
+      img.src = src;
+
+      img.alt =
+        "Screen z Garmina";
+
+      preview.appendChild(
+        img
+      );
+    });
 }
 
 /* =========================================================
    WYŚWIETLANIE TRENINGÓW
 ========================================================= */
 
-function renderWorkouts(filterDate = null) {
+function renderWorkouts(
+  filterDate = null
+) {
   const container =
     document.getElementById(
       "workouts"
@@ -983,9 +1148,11 @@ function renderWorkouts(filterDate = null) {
 
   if (workouts.length === 0) {
     container.innerHTML =
-      `<div class="empty">
+      `
+      <div class="empty">
         Brak zapisanych treningów.
-      </div>`;
+      </div>
+      `;
 
     return;
   }
@@ -1015,21 +1182,18 @@ function renderWorkoutCard(
     <div class="workout-card">
 
       <div class="workout-title">
+
         🏃 ${esc(
           workout.type ||
           "Trening"
         )}
 
-        <div style="
-          font-size:13px;
-          color:#777e8d;
-          font-weight:600;
-          margin-top:4px;
-        ">
+        <div class="workout-date">
           ${formatDate(
             workout.date
           )}
         </div>
+
       </div>
 
       <div class="workout-data">
@@ -1038,7 +1202,8 @@ function renderWorkoutCard(
           workout.distance > 0
             ? `
               <div>
-                <small>Dystans</small><br>
+                <small>Dystans</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.distance
@@ -1053,7 +1218,8 @@ function renderWorkoutCard(
           workout.time
             ? `
               <div>
-                <small>Czas</small><br>
+                <small>Czas</small>
+                <br>
                 <b>
                   ${esc(
                     workout.time
@@ -1068,7 +1234,8 @@ function renderWorkoutCard(
           workout.pace
             ? `
               <div>
-                <small>Tempo</small><br>
+                <small>Tempo</small>
+                <br>
                 <b>
                   ${esc(
                     workout.pace
@@ -1083,7 +1250,8 @@ function renderWorkoutCard(
           workout.hr > 0
             ? `
               <div>
-                <small>Śr. HR</small><br>
+                <small>Śr. HR</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.hr
@@ -1098,7 +1266,8 @@ function renderWorkoutCard(
           workout.maxHr > 0
             ? `
               <div>
-                <small>Max HR</small><br>
+                <small>Max HR</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.maxHr
@@ -1113,7 +1282,8 @@ function renderWorkoutCard(
           workout.calories > 0
             ? `
               <div>
-                <small>Spalone</small><br>
+                <small>Spalone</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.calories
@@ -1128,7 +1298,8 @@ function renderWorkoutCard(
           workout.cadence > 0
             ? `
               <div>
-                <small>Kadencja</small><br>
+                <small>Kadencja</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.cadence
@@ -1143,7 +1314,8 @@ function renderWorkoutCard(
           workout.elevation > 0
             ? `
               <div>
-                <small>Przewyższenie</small><br>
+                <small>Przewyższenie</small>
+                <br>
                 <b>
                   ${fmt(
                     workout.elevation
@@ -1159,13 +1331,7 @@ function renderWorkoutCard(
       ${
         workout.note
           ? `
-            <div style="
-              margin-top:14px;
-              border-top:1px solid #e4e6eb;
-              padding-top:12px;
-              color:#555;
-              line-height:1.4;
-            ">
+            <div class="workout-note">
               📝 ${esc(
                 workout.note
               )}
@@ -1178,6 +1344,7 @@ function renderWorkoutCard(
         screens.length
           ? `
             <div class="screens-preview">
+
               ${screens
                 .slice(0, 4)
                 .map(
@@ -1190,6 +1357,7 @@ function renderWorkoutCard(
                     `
                 )
                 .join("")}
+
             </div>
           `
           : ""
@@ -1200,15 +1368,7 @@ function renderWorkoutCard(
         onclick="deleteCompletedWorkout('${esc(
           workout.id
         )}')"
-        style="
-          margin-top:14px;
-          border:0;
-          border-radius:10px;
-          padding:8px 11px;
-          background:#fee4e2;
-          color:#b42318;
-          font-weight:700;
-        "
+        class="delete-workout-btn"
       >
         Usuń
       </button>
@@ -1224,50 +1384,306 @@ function renderWorkoutCard(
 function renderPlannedListForDate(
   date
 ) {
-  return getPlansForDate(date);
+  return getPlansForDate(
+    date
+  );
 }
 
 /* =========================================================
    STRONA GŁÓWNA
 ========================================================= */
 
+/*
+   Domyślne cele.
+
+   Jeżeli aplikacja ma już zapisane cele
+   w fueltrack_goals_v04, zostaną użyte
+   automatycznie.
+*/
+
+function getNutritionGoals() {
+  const saved =
+    loadJSON(
+      GOALS_KEY,
+      {}
+    );
+
+  return {
+    kcal:
+      num(
+        saved.kcal ??
+        saved.calories ??
+        saved.energy ??
+        2200
+      ) || 2200,
+
+    protein:
+      num(
+        saved.protein ??
+        saved.proteinGoal ??
+        160
+      ) || 160,
+
+    carbs:
+      num(
+        saved.carbs ??
+        saved.carbsGoal ??
+        220
+      ) || 220,
+
+    fat:
+      num(
+        saved.fat ??
+        saved.fatGoal ??
+        70
+      ) || 70
+  };
+}
+
+/*
+   Pobiera aktualną wartość z kafelka.
+
+   Dzięki temu działa również wtedy,
+   gdy główna logika żywieniowa wcześniej
+   wstawiła wartość do homeCalories,
+   homeProtein itd.
+*/
+
+function getHomeNumericValue(
+  elementId
+) {
+  const element =
+    document.getElementById(
+      elementId
+    );
+
+  if (!element) return 0;
+
+  return num(
+    element.textContent
+  );
+}
+
+function getProgressPercent(
+  value,
+  goal
+) {
+  if (
+    !goal ||
+    goal <= 0
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      (value / goal) * 100
+    )
+  );
+}
+
+/*
+   Kolor paska:
+
+   0–49%  → niebieski
+   50–79% → zielony
+   80–99% → zielony
+   100%+  → pomarańczowy
+
+   Dla makro oznacza to:
+   im bliżej celu, tym bardziej
+   kafelek jest "pełny".
+*/
+
+function getProgressState(
+  percent
+) {
+  if (percent >= 100) {
+    return "over";
+  }
+
+  if (percent >= 80) {
+    return "good";
+  }
+
+  if (percent >= 50) {
+    return "medium";
+  }
+
+  return "low";
+}
+
+function updateHomeProgress(
+  cardId,
+  barId,
+  percentId,
+  value,
+  goal
+) {
+  const card =
+    document.getElementById(
+      cardId
+    );
+
+  const bar =
+    document.getElementById(
+      barId
+    );
+
+  const percentLabel =
+    document.getElementById(
+      percentId
+    );
+
+  if (!card || !bar) return;
+
+  const percent =
+    getProgressPercent(
+      value,
+      goal
+    );
+
+  const state =
+    getProgressState(
+      percent
+    );
+
+  card.classList.remove(
+    "progress-low",
+    "progress-medium",
+    "progress-good",
+    "progress-over"
+  );
+
+  card.classList.add(
+    `progress-${state}`
+  );
+
+  bar.style.width =
+    `${percent}%`;
+
+  if (percentLabel) {
+    percentLabel.textContent =
+      `${Math.round(
+        percent
+      )}%`;
+  }
+}
+
+function updateHomeBalance(
+  balance
+) {
+  const card =
+    document.getElementById(
+      "homeBalanceCard"
+    );
+
+  const bar =
+    document.getElementById(
+      "homeBalanceBar"
+    );
+
+  const label =
+    document.getElementById(
+      "homeBalancePercent"
+    );
+
+  if (!card || !bar) return;
+
+  card.classList.remove(
+    "balance-good",
+    "balance-warning",
+    "balance-danger"
+  );
+
+  /*
+     Bilans:
+
+     okolice 0 → zielony
+     umiarkowane odchylenie → żółty
+     duże odchylenie → czerwony
+  */
+
+  const absolute =
+    Math.abs(
+      num(balance)
+    );
+
+  let width =
+    100 -
+    Math.min(
+      100,
+      (absolute / 1000) *
+        100
+    );
+
+  if (
+    !Number.isFinite(width)
+  ) {
+    width = 0;
+  }
+
+  bar.style.width =
+    `${Math.max(
+      0,
+      width
+    )}%`;
+
+  if (
+    absolute <= 200
+  ) {
+    card.classList.add(
+      "balance-good"
+    );
+  } else if (
+    absolute <= 500
+  ) {
+    card.classList.add(
+      "balance-warning"
+    );
+  } else {
+    card.classList.add(
+      "balance-danger"
+    );
+  }
+
+  if (label) {
+    label.textContent =
+      balance > 0
+        ? `+${fmt(balance)}`
+        : fmt(balance);
+  }
+}
+
 function renderHomeSummary() {
   /*
-    Nie nadpisujemy tutaj danych żywieniowych.
-    Jeżeli istnieją już elementy obsługiwane
-    przez główną logikę żywieniową, treningi
-    dostarczają jedynie sumę spalonych kcal.
+    Treningi dostarczają sumę spalonych kcal.
   */
 
   const lastWorkout =
     [...completedWorkouts]
       .sort(
         (a, b) =>
-          String(b.date).localeCompare(
+          String(
+            b.date
+          ).localeCompare(
             String(a.date)
           )
       )[0];
-
-  if (!lastWorkout) {
-    const burned =
-      document.getElementById(
-        "homeBurned"
-      );
-
-    if (burned) {
-      burned.textContent =
-        "0 kcal";
-    }
-
-    return;
-  }
 
   const burned =
     document.getElementById(
       "homeBurned"
     );
 
-  if (burned) {
+  if (!lastWorkout) {
+    if (burned) {
+      burned.textContent =
+        "0 kcal";
+    }
+  } else {
     const sameDay =
       completedWorkouts.filter(
         workout =>
@@ -1285,9 +1701,87 @@ function renderHomeSummary() {
         0
       );
 
-    burned.textContent =
-      `${fmt(calories)} kcal`;
+    if (burned) {
+      burned.textContent =
+        `${fmt(
+          calories
+        )} kcal`;
+    }
   }
+
+  /*
+     Odczytujemy wartości,
+     które są aktualnie pokazane
+     na stronie głównej.
+  */
+
+  const kcal =
+    getHomeNumericValue(
+      "homeCalories"
+    );
+
+  const protein =
+    getHomeNumericValue(
+      "homeProtein"
+    );
+
+  const carbs =
+    getHomeNumericValue(
+      "homeCarbs"
+    );
+
+  const fat =
+    getHomeNumericValue(
+      "homeFat"
+    );
+
+  const balance =
+    getHomeNumericValue(
+      "homeBalance"
+    );
+
+  const goals =
+    getNutritionGoals();
+
+  /*
+     Paski makro.
+  */
+
+  updateHomeProgress(
+    "homeCaloriesCard",
+    "homeCaloriesBar",
+    "homeCaloriesPercent",
+    kcal,
+    goals.kcal
+  );
+
+  updateHomeProgress(
+    "homeProteinCard",
+    "homeProteinBar",
+    "homeProteinPercent",
+    protein,
+    goals.protein
+  );
+
+  updateHomeProgress(
+    "homeCarbsCard",
+    "homeCarbsBar",
+    "homeCarbsPercent",
+    carbs,
+    goals.carbs
+  );
+
+  updateHomeProgress(
+    "homeFatCard",
+    "homeFatBar",
+    "homeFatPercent",
+    fat,
+    goals.fat
+  );
+
+  updateHomeBalance(
+    balance
+  );
 }
 
 /* =========================================================
@@ -1308,12 +1802,6 @@ function initTrainingPage() {
   renderWorkouts();
 
   renderHomeSummary();
-
-  /*
-    Hash pozwala również otwierać:
-    #training
-    #nutrition
-  */
 
   if (
     window.location.hash ===
