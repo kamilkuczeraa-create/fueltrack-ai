@@ -1,17 +1,24 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
+
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0, viewport-fit=cover"
   >
 
-  <meta name="theme-color" content="#f3f4f7">
+  <meta
+    name="theme-color"
+    content="#f3f4f7"
+  >
 
   <title>FuelTrack AI</title>
 
   <style>
+
     * {
       box-sizing: border-box;
     }
@@ -93,7 +100,9 @@
       background: #3565e8;
       color: white;
       font-weight: 800;
-      box-shadow: 0 8px 20px rgba(53, 101, 232, .2);
+      box-shadow:
+        0 8px 20px
+        rgba(53, 101, 232, .2);
     }
 
     .secondary-btn {
@@ -119,7 +128,9 @@
       border-radius: 28px;
       padding: 24px;
       margin-bottom: 18px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, .045);
+      box-shadow:
+        0 4px 20px
+        rgba(0, 0, 0, .045);
     }
 
     .dark-card {
@@ -142,30 +153,213 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns:
+        repeat(2, 1fr);
       gap: 12px;
     }
 
+    /* =====================================================
+       KAFELKI GŁÓWNE — NOWE
+    ===================================================== */
+
     .summary-item {
+      position: relative;
+      overflow: hidden;
       background: #242a3a;
       border-radius: 20px;
-      padding: 17px;
+      padding: 16px 17px 14px;
+      transition:
+        background .25s ease,
+        transform .2s ease;
+    }
+
+    .summary-item:hover {
+      transform: translateY(-1px);
+    }
+
+    .summary-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 5px;
     }
 
     .summary-label {
       color: #aeb4c3;
       font-size: 13px;
-      margin-bottom: 5px;
+      line-height: 1.2;
+    }
+
+    .summary-percent {
+      font-size: 10px;
+      font-weight: 850;
+      color: #aeb4c3;
+      white-space: nowrap;
     }
 
     .summary-value {
       font-size: 24px;
       font-weight: 850;
+      line-height: 1.1;
     }
+
+    .summary-progress {
+      height: 6px;
+      width: 100%;
+      margin-top: 12px;
+      background: #3b4151;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .summary-progress-bar {
+      height: 100%;
+      width: 0;
+      border-radius: 99px;
+      transition:
+        width .35s ease,
+        background .25s ease;
+    }
+
+    /* Kolory realizacji celu */
+
+    .summary-item.progress-low {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #263149
+        );
+    }
+
+    .summary-item.progress-medium {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #273b37
+        );
+    }
+
+    .summary-item.progress-good {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #244638
+        );
+    }
+
+    .summary-item.progress-over {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #493c2b
+        );
+    }
+
+    .progress-low
+    .summary-progress-bar {
+      background: #4e7cff;
+    }
+
+    .progress-medium
+    .summary-progress-bar {
+      background: #38b879;
+    }
+
+    .progress-good
+    .summary-progress-bar {
+      background: #35c878;
+    }
+
+    .progress-over
+    .summary-progress-bar {
+      background: #f0a441;
+    }
+
+    /* Spalone kcal */
+
+    #homeBurnedCard {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #302b45
+        );
+    }
+
+    #homeBurnedBar {
+      background: #a36cff;
+    }
+
+    /* Bilans */
+
+    #homeBalanceCard {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #263149
+        );
+    }
+
+    .balance-good {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #244638
+        ) !important;
+    }
+
+    .balance-warning {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #493c2b
+        ) !important;
+    }
+
+    .balance-danger {
+      background:
+        linear-gradient(
+          145deg,
+          #242a3a,
+          #482c32
+        ) !important;
+    }
+
+    .balance-good
+    #homeBalanceBar {
+      background: #35c878;
+    }
+
+    .balance-warning
+    #homeBalanceBar {
+      background: #f0a441;
+    }
+
+    .balance-danger
+    #homeBalanceBar {
+      background: #ef6262;
+    }
+
+    #homeBalancePercent {
+      font-size: 10px;
+    }
+
+    /* =====================================================
+       NAWIGACJA
+    ===================================================== */
 
     .nav-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns:
+        repeat(2, 1fr);
       gap: 16px;
       margin-bottom: 18px;
     }
@@ -177,7 +371,9 @@
       border-radius: 26px;
       padding: 25px;
       min-height: 145px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, .045);
+      box-shadow:
+        0 4px 20px
+        rgba(0, 0, 0, .045);
     }
 
     .nav-icon {
@@ -234,9 +430,14 @@
       border-color: #3565e8;
     }
 
+    /* =====================================================
+       MAKRO
+    ===================================================== */
+
     .macro-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns:
+        repeat(2, 1fr);
       gap: 12px;
       margin-top: 20px;
     }
@@ -279,12 +480,18 @@
       width: 0;
       border-radius: 99px;
       background: #4e7cff;
-      transition: width .25s ease;
+      transition:
+        width .25s ease;
     }
+
+    /* =====================================================
+       POSIŁKI
+    ===================================================== */
 
     .meal {
       padding: 18px 0;
-      border-bottom: 1px solid #eceef2;
+      border-bottom:
+        1px solid #eceef2;
     }
 
     .meal:last-child {
@@ -297,7 +504,8 @@
 
     .product {
       padding: 9px 0;
-      border-bottom: 1px solid #f0f1f4;
+      border-bottom:
+        1px solid #f0f1f4;
     }
 
     .product:last-child {
@@ -330,7 +538,8 @@
 
     .collapse-arrow {
       font-size: 20px;
-      transition: transform .2s ease;
+      transition:
+        transform .2s ease;
     }
 
     .collapse-content {
@@ -348,7 +557,8 @@
       justify-content: space-between;
       gap: 12px;
       padding: 11px 0;
-      border-bottom: 1px solid #eceef2;
+      border-bottom:
+        1px solid #eceef2;
     }
 
     .history-row:last-child,
@@ -364,13 +574,15 @@
       text-align: left;
     }
 
-    /* =========================
+    /* =====================================================
        FORMULARZE
-    ========================== */
+    ===================================================== */
 
     .form-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      grid-template-columns:
+        minmax(0, 1fr)
+        minmax(0, 1fr);
       gap: 10px;
     }
 
@@ -397,9 +609,9 @@
       color: #9ca1aa;
     }
 
-    /* =========================
+    /* =====================================================
        WYKONANE TRENINGI
-    ========================== */
+    ===================================================== */
 
     .workout-card {
       background: #f5f6fa;
@@ -414,9 +626,17 @@
       margin-bottom: 14px;
     }
 
+    .workout-date {
+      font-size: 13px;
+      color: #777e8d;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
     .workout-data {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns:
+        repeat(2, 1fr);
       gap: 12px;
     }
 
@@ -428,9 +648,28 @@
       font-size: 16px;
     }
 
-    /* =========================
-       KALENDARZ TRENINGÓW
-    ========================== */
+    .workout-note {
+      margin-top: 14px;
+      border-top:
+        1px solid #e4e6eb;
+      padding-top: 12px;
+      color: #555;
+      line-height: 1.4;
+    }
+
+    .delete-workout-btn {
+      margin-top: 14px;
+      border: 0;
+      border-radius: 10px;
+      padding: 8px 11px;
+      background: #fee4e2;
+      color: #b42318;
+      font-weight: 700;
+    }
+
+    /* =====================================================
+       KALENDARZ
+    ===================================================== */
 
     .calendar {
       width: 100%;
@@ -440,7 +679,11 @@
     .calendar-head,
     .calendar-row {
       display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns:
+        repeat(
+          7,
+          minmax(0, 1fr)
+        );
       width: 100%;
       min-width: 0;
     }
@@ -463,6 +706,17 @@
       overflow: hidden;
     }
 
+    .calendar-day:hover {
+      background: #f8f9fc;
+    }
+
+    .calendar-today {
+      border:
+        2px solid #3565e8 !important;
+      background:
+        #f6f8ff !important;
+    }
+
     .calendar-number {
       font-size: 14px;
       font-weight: 850;
@@ -472,16 +726,24 @@
     .calendar-event {
       min-width: 0;
       border-radius: 8px;
-      padding: 4px 4px;
+      padding: 4px;
       margin-top: 3px;
-      background: #e8edff;
-      color: #294da9;
       font-size: 9px;
       line-height: 1.15;
       font-weight: 750;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .calendar-event.planned {
+      background: #e8edff;
+      color: #294da9;
+    }
+
+    .calendar-event.completed {
+      background: #e4f6ed;
+      color: #17613d;
     }
 
     .empty {
@@ -493,13 +755,14 @@
       display: none !important;
     }
 
-    /* =========================
+    /* =====================================================
        SCREENY
-    ========================== */
+    ===================================================== */
 
     .screens-preview {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns:
+        repeat(4, 1fr);
       gap: 8px;
       margin-top: 10px;
     }
@@ -511,9 +774,9 @@
       border-radius: 12px;
     }
 
-    /* =========================
+    /* =====================================================
        STATUS
-    ========================== */
+    ===================================================== */
 
     .status {
       position: fixed;
@@ -527,32 +790,42 @@
       color: white;
       font-weight: 700;
       text-align: center;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
+      box-shadow:
+        0 8px 30px
+        rgba(0, 0, 0, .2);
     }
 
-    /* =========================
+    /* =====================================================
        TABLET / MOBILE
-    ========================== */
+    ===================================================== */
 
     @media (max-width: 650px) {
 
       .app {
-        padding: 22px 16px 70px;
+        padding:
+          22px
+          16px
+          70px;
       }
 
       .topbar {
         align-items: center;
       }
 
-      .topbar .primary-btn {
-        padding: 14px 15px;
+      .topbar
+      .primary-btn {
+        padding:
+          14px
+          15px;
+
         font-size: 14px;
       }
 
       .nav-grid,
       .macro-grid,
       .summary-grid {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns:
+          1fr 1fr;
       }
 
       .nav-card {
@@ -572,7 +845,12 @@
 
       .calendar-head,
       .calendar-row {
-        grid-template-columns: repeat(7, minmax(0, 1fr));
+        grid-template-columns:
+          repeat(
+            7,
+            minmax(0, 1fr)
+          );
+
         width: 100%;
         min-width: 0;
       }
@@ -597,10 +875,13 @@
         border-radius: 7px;
       }
 
-      /* FORMULARZ PLANOWANIA */
+      /* FORMULARZ */
 
       .form-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-columns:
+          minmax(0, 1fr)
+          minmax(0, 1fr);
+
         gap: 8px;
       }
 
@@ -608,7 +889,9 @@
       .form-grid select,
       .form-grid textarea {
         font-size: 14px;
-        padding: 11px 10px;
+        padding:
+          11px
+          10px;
       }
 
       .form-grid input::placeholder,
@@ -624,6 +907,32 @@
       #planCalories::placeholder,
       #planDistance::placeholder {
         font-size: 11px;
+      }
+
+      /* KAFELKI */
+
+      .summary-item {
+        padding:
+          14px
+          14px
+          12px;
+      }
+
+      .summary-value {
+        font-size: 21px;
+      }
+
+      .summary-label {
+        font-size: 12px;
+      }
+
+      .summary-percent {
+        font-size: 9px;
+      }
+
+      .summary-progress {
+        height: 5px;
+        margin-top: 10px;
       }
     }
 
@@ -646,14 +955,21 @@
       }
 
       .summary-item {
-        padding: 14px;
+        padding:
+          13px
+          12px
+          11px;
       }
 
       .summary-value {
-        font-size: 20px;
+        font-size: 19px;
       }
 
-      /* JESZCZE MNIEJSZY KALENDARZ NA IPHONE */
+      .summary-label {
+        font-size: 11px;
+      }
+
+      /* KALENDARZ */
 
       .calendar-head div {
         font-size: 9px;
@@ -672,7 +988,9 @@
 
       .calendar-event {
         font-size: 7px;
-        padding: 2px 3px;
+        padding:
+          2px
+          3px;
       }
 
       /* POLA PLANOWANIA */
@@ -684,7 +1002,9 @@
       .form-grid input,
       .form-grid select,
       .form-grid textarea {
-        padding: 10px 9px;
+        padding:
+          10px
+          9px;
       }
 
       .form-grid input::placeholder,
@@ -702,27 +1022,37 @@
         font-size: 10px;
       }
     }
+
   </style>
+
 </head>
 
 <body>
 
   <main class="app">
 
-    <!-- =========================
+    <!-- =================================================
          STRONA GŁÓWNA
-    ========================== -->
+    ================================================== -->
 
     <section id="homePage">
 
       <header class="topbar">
 
         <div>
-          <div class="brand">FUELTRACK AI</div>
-          <h1>Twój dzień</h1>
+
+          <div class="brand">
+            FUELTRACK AI
+          </div>
+
+          <h1>
+            Twój dzień
+          </h1>
+
         </div>
 
       </header>
+
 
       <section class="card dark-card">
 
@@ -730,75 +1060,267 @@
           Ostatni zaraportowany dzień
         </div>
 
-        <div id="homeDate" class="summary-date">
+        <div
+          id="homeDate"
+          class="summary-date"
+        >
           Brak danych
         </div>
 
+
         <div class="summary-grid">
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Przyjęte kalorie
+          <!-- KALORIE -->
+
+          <div
+            id="homeCaloriesCard"
+            class="summary-item progress-low"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Przyjęte kalorie
+              </div>
+
+              <div
+                id="homeCaloriesPercent"
+                class="summary-percent"
+              >
+                0%
+              </div>
+
             </div>
 
-            <div id="homeCalories" class="summary-value">
+            <div
+              id="homeCalories"
+              class="summary-value"
+            >
               0 kcal
             </div>
-          </div>
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Spalone w treningu
+            <div class="summary-progress">
+
+              <div
+                id="homeCaloriesBar"
+                class="summary-progress-bar"
+              ></div>
+
             </div>
 
-            <div id="homeBurned" class="summary-value">
+          </div>
+
+
+          <!-- SPALONE -->
+
+          <div
+            id="homeBurnedCard"
+            class="summary-item"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Spalone w treningu
+              </div>
+
+              <div
+                id="homeBurnedPercent"
+                class="summary-percent"
+              >
+                TRENING
+              </div>
+
+            </div>
+
+            <div
+              id="homeBurned"
+              class="summary-value"
+            >
               0 kcal
             </div>
-          </div>
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Białko
+            <div class="summary-progress">
+
+              <div
+                id="homeBurnedBar"
+                class="summary-progress-bar"
+                style="width:0%"
+              ></div>
+
             </div>
 
-            <div id="homeProtein" class="summary-value">
+          </div>
+
+
+          <!-- BIAŁKO -->
+
+          <div
+            id="homeProteinCard"
+            class="summary-item progress-low"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Białko
+              </div>
+
+              <div
+                id="homeProteinPercent"
+                class="summary-percent"
+              >
+                0%
+              </div>
+
+            </div>
+
+            <div
+              id="homeProtein"
+              class="summary-value"
+            >
               0 g
             </div>
-          </div>
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Węglowodany
+            <div class="summary-progress">
+
+              <div
+                id="homeProteinBar"
+                class="summary-progress-bar"
+              ></div>
+
             </div>
 
-            <div id="homeCarbs" class="summary-value">
+          </div>
+
+
+          <!-- WĘGLOWODANY -->
+
+          <div
+            id="homeCarbsCard"
+            class="summary-item progress-low"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Węglowodany
+              </div>
+
+              <div
+                id="homeCarbsPercent"
+                class="summary-percent"
+              >
+                0%
+              </div>
+
+            </div>
+
+            <div
+              id="homeCarbs"
+              class="summary-value"
+            >
               0 g
             </div>
-          </div>
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Tłuszcz
+            <div class="summary-progress">
+
+              <div
+                id="homeCarbsBar"
+                class="summary-progress-bar"
+              ></div>
+
             </div>
 
-            <div id="homeFat" class="summary-value">
+          </div>
+
+
+          <!-- TŁUSZCZ -->
+
+          <div
+            id="homeFatCard"
+            class="summary-item progress-low"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Tłuszcz
+              </div>
+
+              <div
+                id="homeFatPercent"
+                class="summary-percent"
+              >
+                0%
+              </div>
+
+            </div>
+
+            <div
+              id="homeFat"
+              class="summary-value"
+            >
               0 g
             </div>
-          </div>
 
-          <div class="summary-item">
-            <div class="summary-label">
-              Różnica względem celu
+            <div class="summary-progress">
+
+              <div
+                id="homeFatBar"
+                class="summary-progress-bar"
+              ></div>
+
             </div>
 
-            <div id="homeBalance" class="summary-value">
+          </div>
+
+
+          <!-- BILANS -->
+
+          <div
+            id="homeBalanceCard"
+            class="summary-item balance-good"
+          >
+
+            <div class="summary-label-row">
+
+              <div class="summary-label">
+                Różnica względem celu
+              </div>
+
+              <div
+                id="homeBalancePercent"
+                class="summary-percent"
+              >
+                0
+              </div>
+
+            </div>
+
+            <div
+              id="homeBalance"
+              class="summary-value"
+            >
               0 kcal
             </div>
+
+            <div class="summary-progress">
+
+              <div
+                id="homeBalanceBar"
+                class="summary-progress-bar"
+                style="width:100%"
+              ></div>
+
+            </div>
+
           </div>
 
         </div>
 
       </section>
+
 
       <section class="nav-grid">
 
@@ -807,6 +1329,7 @@
           id="goNutrition"
           type="button"
         >
+
           <div class="nav-icon">
             🍽️
           </div>
@@ -818,13 +1341,16 @@
           <div class="nav-description">
             Fitatu, posiłki, makro, mikro i historia.
           </div>
+
         </button>
+
 
         <button
           class="nav-card"
           id="goTraining"
           type="button"
         >
+
           <div class="nav-icon">
             🏃
           </div>
@@ -836,15 +1362,17 @@
           <div class="nav-description">
             Kalendarz, planowanie i zapis wykonanych treningów.
           </div>
+
         </button>
 
       </section>
 
     </section>
 
-    <!-- =========================
-         STRONA ŻYWIENIA
-    ========================== -->
+
+    <!-- =================================================
+         ŻYWIENIE
+    ================================================== -->
 
     <section
       id="nutritionPage"
@@ -859,9 +1387,11 @@
         ← Strona główna
       </button>
 
+
       <header class="topbar">
 
         <div>
+
           <div class="brand">
             FUELTRACK AI
           </div>
@@ -869,7 +1399,9 @@
           <h1>
             Żywienie
           </h1>
+
         </div>
+
 
         <button
           class="primary-btn"
@@ -879,6 +1411,7 @@
           + Import Fitatu
         </button>
 
+
         <input
           id="fileInput"
           type="file"
@@ -887,6 +1420,7 @@
         >
 
       </header>
+
 
       <section class="card dark-card">
 
@@ -901,12 +1435,15 @@
           Brak danych
         </div>
 
+
         <select
           id="dateSelect"
           style="margin-top:18px;"
         ></select>
 
+
         <div class="macro-grid">
+
 
           <div class="macro-card">
 
@@ -925,6 +1462,7 @@
 
             </div>
 
+
             <div class="progress-track">
 
               <div
@@ -935,6 +1473,7 @@
             </div>
 
           </div>
+
 
           <div class="macro-card">
 
@@ -953,6 +1492,7 @@
 
             </div>
 
+
             <div class="progress-track">
 
               <div
@@ -963,6 +1503,7 @@
             </div>
 
           </div>
+
 
           <div class="macro-card">
 
@@ -981,6 +1522,7 @@
 
             </div>
 
+
             <div class="progress-track">
 
               <div
@@ -991,6 +1533,7 @@
             </div>
 
           </div>
+
 
           <div class="macro-card">
 
@@ -1009,6 +1552,7 @@
 
             </div>
 
+
             <div class="progress-track">
 
               <div
@@ -1023,6 +1567,7 @@
         </div>
 
       </section>
+
 
       <section class="card">
 
@@ -1046,6 +1591,7 @@
 
       </section>
 
+
       <section class="card">
 
         <button
@@ -1064,26 +1610,37 @@
 
         </button>
 
+
         <div
           id="macroMicroContent"
           class="collapse-content"
         >
 
-          <h3 style="margin-bottom:12px;">
+          <h3
+            style="margin-bottom:12px;"
+          >
             Makro
           </h3>
 
-          <div id="macroDetails"></div>
+          <div
+            id="macroDetails"
+          ></div>
 
-          <h3 style="margin:25px 0 12px;">
+
+          <h3
+            style="margin:25px 0 12px;"
+          >
             Mikro
           </h3>
 
-          <div id="micros"></div>
+          <div
+            id="micros"
+          ></div>
 
         </div>
 
       </section>
+
 
       <section class="card">
 
@@ -1114,18 +1671,22 @@
 
           </span>
 
+
           <span class="collapse-arrow">
             ⌄
           </span>
 
         </button>
 
+
         <div
           id="historyContent"
           class="collapse-content"
         >
 
-          <div id="history"></div>
+          <div
+            id="history"
+          ></div>
 
         </div>
 
@@ -1133,9 +1694,10 @@
 
     </section>
 
-    <!-- =========================
-         STRONA TRENINGÓW
-    ========================== -->
+
+    <!-- =================================================
+         TRENINGI
+    ================================================== -->
 
     <section
       id="trainingPage"
@@ -1150,7 +1712,10 @@
         ← Strona główna
       </button>
 
-      <header style="margin-bottom:25px;">
+
+      <header
+        style="margin-bottom:25px;"
+      >
 
         <div class="brand">
           FUELTRACK AI
@@ -1162,9 +1727,8 @@
 
       </header>
 
-      <!-- =========================
-           KALENDARZ
-      ========================== -->
+
+      <!-- KALENDARZ -->
 
       <section class="card">
 
@@ -1173,6 +1737,7 @@
           <h2>
             Kalendarz treningów
           </h2>
+
 
           <div
             style="
@@ -1201,6 +1766,7 @@
 
         </div>
 
+
         <div
           id="calendarTitle"
           style="
@@ -1210,19 +1776,41 @@
           "
         ></div>
 
+
         <div class="calendar">
 
           <div class="calendar-head">
 
-            <div>Pon</div>
-            <div>Wt</div>
-            <div>Śr</div>
-            <div>Czw</div>
-            <div>Pt</div>
-            <div>Sob</div>
-            <div>Nd</div>
+            <div>
+              Pon
+            </div>
+
+            <div>
+              Wt
+            </div>
+
+            <div>
+              Śr
+            </div>
+
+            <div>
+              Czw
+            </div>
+
+            <div>
+              Pt
+            </div>
+
+            <div>
+              Sob
+            </div>
+
+            <div>
+              Nd
+            </div>
 
           </div>
+
 
           <div
             id="calendarGrid"
@@ -1233,9 +1821,8 @@
 
       </section>
 
-      <!-- =========================
-           PLANOWANIE
-      ========================== -->
+
+      <!-- PLANOWANIE -->
 
       <section class="card">
 
@@ -1247,12 +1834,14 @@
 
         </div>
 
+
         <div class="form-grid">
 
           <input
             id="planDate"
             type="date"
           >
+
 
           <select id="planType">
 
@@ -1290,17 +1879,20 @@
 
           </select>
 
+
           <input
             id="planName"
             placeholder="Nazwa treningu"
             class="form-full"
           >
 
+
           <input
             id="planCalories"
             type="number"
             placeholder="Spalone kcal"
           >
+
 
           <input
             id="planDistance"
@@ -1309,12 +1901,14 @@
             placeholder="Dystans (km)"
           >
 
+
           <textarea
             id="planNote"
             rows="3"
             placeholder="Opis / założenia treningu"
             class="form-full"
           ></textarea>
+
 
           <button
             id="savePlanBtn"
@@ -1328,9 +1922,8 @@
 
       </section>
 
-      <!-- =========================
-           WYKONANE TRENINGI
-      ========================== -->
+
+      <!-- WYKONANE TRENINGI -->
 
       <section class="card">
 
@@ -1339,6 +1932,7 @@
           <h2>
             Wykonane treningi
           </h2>
+
 
           <button
             class="secondary-btn"
@@ -1349,6 +1943,7 @@
           </button>
 
         </div>
+
 
         <div
           id="workoutForm"
@@ -1414,6 +2009,7 @@
               placeholder="Przewyższenie m"
             >
 
+
             <textarea
               id="wNote"
               rows="3"
@@ -1421,11 +2017,16 @@
               class="form-full"
             ></textarea>
 
+
             <div class="form-full">
 
-              <label style="font-weight:750;">
-                Screeny z Garmina — maks. 4
+              <label
+                style="font-weight:750;"
+              >
+                Screeny z Garmina —
+                maks. 4
               </label>
+
 
               <input
                 id="wScreens"
@@ -1435,12 +2036,14 @@
                 style="margin-top:8px;"
               >
 
+
               <div
                 id="screensPreview"
                 class="screens-preview"
               ></div>
 
             </div>
+
 
             <button
               id="saveWorkoutBtn"
@@ -1449,6 +2052,7 @@
             >
               Zapisz trening
             </button>
+
 
             <button
               id="cancelWorkoutBtn"
@@ -1462,6 +2066,7 @@
 
         </div>
 
+
         <div
           id="workouts"
           style="margin-top:18px;"
@@ -1473,17 +2078,15 @@
 
   </main>
 
+
   <div
     id="status"
     class="status hidden"
   ></div>
 
-  <!--
-    Logika aplikacji
-    Cała logika znajduje się w TrainingPage.js
-  -->
 
   <script src="TrainingPage.js"></script>
 
 </body>
+
 </html>
