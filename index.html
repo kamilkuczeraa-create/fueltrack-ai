@@ -2,8 +2,13 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+  >
+
   <meta name="theme-color" content="#f3f4f7">
+
   <title>FuelTrack AI</title>
 
   <style>
@@ -20,8 +25,14 @@
       padding: 0;
       background: #f3f4f7;
       color: #111827;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-        "SF Pro Text", Inter, Arial, sans-serif;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Display",
+        "SF Pro Text",
+        Inter,
+        Arial,
+        sans-serif;
     }
 
     button,
@@ -353,15 +364,42 @@
       text-align: left;
     }
 
+    /* =========================
+       FORMULARZE
+    ========================== */
+
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 10px;
     }
 
     .form-full {
       grid-column: 1 / -1;
     }
+
+    .form-grid > input,
+    .form-grid > select,
+    .form-grid > textarea {
+      min-width: 0;
+    }
+
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea {
+      font-size: 14px;
+      min-width: 0;
+    }
+
+    .form-grid input::placeholder,
+    .form-grid textarea::placeholder {
+      font-size: 13px;
+      color: #9ca1aa;
+    }
+
+    /* =========================
+       WYKONANE TRENINGI
+    ========================== */
 
     .workout-card {
       background: #f5f6fa;
@@ -390,46 +428,60 @@
       font-size: 16px;
     }
 
+    /* =========================
+       KALENDARZ TRENINGÓW
+    ========================== */
+
     .calendar {
-      overflow-x: auto;
+      width: 100%;
+      overflow-x: hidden;
     }
 
     .calendar-head,
     .calendar-row {
       display: grid;
-      grid-template-columns: repeat(7, minmax(75px, 1fr));
-      min-width: 560px;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      width: 100%;
+      min-width: 0;
     }
 
     .calendar-head div {
-      padding: 8px;
+      padding: 6px 2px;
       text-align: center;
       color: #7b8190;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
+      overflow: hidden;
     }
 
     .calendar-day {
-      min-height: 105px;
+      min-width: 0;
+      min-height: 82px;
       border: 1px solid #eceef2;
-      padding: 7px;
+      padding: 5px;
       background: white;
+      overflow: hidden;
     }
 
     .calendar-number {
+      font-size: 14px;
       font-weight: 850;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .calendar-event {
-      border-radius: 9px;
-      padding: 5px 6px;
-      margin-top: 4px;
+      min-width: 0;
+      border-radius: 8px;
+      padding: 4px 4px;
+      margin-top: 3px;
       background: #e8edff;
       color: #294da9;
-      font-size: 11px;
+      font-size: 9px;
+      line-height: 1.15;
       font-weight: 750;
       overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .empty {
@@ -440,6 +492,10 @@
     .hidden {
       display: none !important;
     }
+
+    /* =========================
+       SCREENY
+    ========================== */
 
     .screens-preview {
       display: grid;
@@ -454,6 +510,10 @@
       object-fit: cover;
       border-radius: 12px;
     }
+
+    /* =========================
+       STATUS
+    ========================== */
 
     .status {
       position: fixed;
@@ -470,7 +530,12 @@
       box-shadow: 0 8px 30px rgba(0, 0, 0, .2);
     }
 
+    /* =========================
+       TABLET / MOBILE
+    ========================== */
+
     @media (max-width: 650px) {
+
       .app {
         padding: 22px 16px 70px;
       }
@@ -486,8 +551,7 @@
 
       .nav-grid,
       .macro-grid,
-      .summary-grid,
-      .form-grid {
+      .summary-grid {
         grid-template-columns: 1fr 1fr;
       }
 
@@ -499,9 +563,72 @@
       .nav-title {
         font-size: 20px;
       }
+
+      /* KALENDARZ */
+
+      .calendar {
+        overflow-x: hidden;
+      }
+
+      .calendar-head,
+      .calendar-row {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        width: 100%;
+        min-width: 0;
+      }
+
+      .calendar-head div {
+        font-size: 10px;
+        padding: 5px 1px;
+      }
+
+      .calendar-day {
+        min-height: 76px;
+        padding: 4px;
+      }
+
+      .calendar-number {
+        font-size: 13px;
+      }
+
+      .calendar-event {
+        font-size: 8px;
+        padding: 3px;
+        border-radius: 7px;
+      }
+
+      /* FORMULARZ PLANOWANIA */
+
+      .form-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 8px;
+      }
+
+      .form-grid input,
+      .form-grid select,
+      .form-grid textarea {
+        font-size: 14px;
+        padding: 11px 10px;
+      }
+
+      .form-grid input::placeholder,
+      .form-grid textarea::placeholder {
+        font-size: 12px;
+      }
+
+      #planCalories,
+      #planDistance {
+        font-size: 13px;
+      }
+
+      #planCalories::placeholder,
+      #planDistance::placeholder {
+        font-size: 11px;
+      }
     }
 
     @media (max-width: 430px) {
+
       .nav-grid {
         gap: 10px;
       }
@@ -524,6 +651,55 @@
 
       .summary-value {
         font-size: 20px;
+      }
+
+      /* JESZCZE MNIEJSZY KALENDARZ NA IPHONE */
+
+      .calendar-head div {
+        font-size: 9px;
+        font-weight: 800;
+      }
+
+      .calendar-day {
+        min-height: 70px;
+        padding: 3px;
+      }
+
+      .calendar-number {
+        font-size: 12px;
+        margin-bottom: 3px;
+      }
+
+      .calendar-event {
+        font-size: 7px;
+        padding: 2px 3px;
+      }
+
+      /* POLA PLANOWANIA */
+
+      .form-grid {
+        gap: 7px;
+      }
+
+      .form-grid input,
+      .form-grid select,
+      .form-grid textarea {
+        padding: 10px 9px;
+      }
+
+      .form-grid input::placeholder,
+      .form-grid textarea::placeholder {
+        font-size: 11px;
+      }
+
+      #planCalories,
+      #planDistance {
+        font-size: 12px;
+      }
+
+      #planCalories::placeholder,
+      #planDistance::placeholder {
+        font-size: 10px;
       }
     }
   </style>
@@ -548,7 +724,6 @@
 
       </header>
 
-
       <section class="card dark-card">
 
         <div class="summary-title">
@@ -571,7 +746,6 @@
             </div>
           </div>
 
-
           <div class="summary-item">
             <div class="summary-label">
               Spalone w treningu
@@ -581,7 +755,6 @@
               0 kcal
             </div>
           </div>
-
 
           <div class="summary-item">
             <div class="summary-label">
@@ -593,7 +766,6 @@
             </div>
           </div>
 
-
           <div class="summary-item">
             <div class="summary-label">
               Węglowodany
@@ -604,7 +776,6 @@
             </div>
           </div>
 
-
           <div class="summary-item">
             <div class="summary-label">
               Tłuszcz
@@ -614,7 +785,6 @@
               0 g
             </div>
           </div>
-
 
           <div class="summary-item">
             <div class="summary-label">
@@ -630,7 +800,6 @@
 
       </section>
 
-
       <section class="nav-grid">
 
         <button
@@ -638,7 +807,6 @@
           id="goNutrition"
           type="button"
         >
-
           <div class="nav-icon">
             🍽️
           </div>
@@ -650,16 +818,13 @@
           <div class="nav-description">
             Fitatu, posiłki, makro, mikro i historia.
           </div>
-
         </button>
-
 
         <button
           class="nav-card"
           id="goTraining"
           type="button"
         >
-
           <div class="nav-icon">
             🏃
           </div>
@@ -671,13 +836,11 @@
           <div class="nav-description">
             Kalendarz, planowanie i zapis wykonanych treningów.
           </div>
-
         </button>
 
       </section>
 
     </section>
-
 
     <!-- =========================
          STRONA ŻYWIENIA
@@ -696,7 +859,6 @@
         ← Strona główna
       </button>
 
-
       <header class="topbar">
 
         <div>
@@ -709,7 +871,6 @@
           </h1>
         </div>
 
-
         <button
           class="primary-btn"
           id="importBtn"
@@ -717,7 +878,6 @@
         >
           + Import Fitatu
         </button>
-
 
         <input
           id="fileInput"
@@ -727,9 +887,6 @@
         >
 
       </header>
-
-
-      <!-- DZIEŃ + BILANS -->
 
       <section class="card dark-card">
 
@@ -744,12 +901,10 @@
           Brak danych
         </div>
 
-
         <select
           id="dateSelect"
           style="margin-top:18px;"
         ></select>
-
 
         <div class="macro-grid">
 
@@ -770,7 +925,6 @@
 
             </div>
 
-
             <div class="progress-track">
 
               <div
@@ -781,7 +935,6 @@
             </div>
 
           </div>
-
 
           <div class="macro-card">
 
@@ -800,7 +953,6 @@
 
             </div>
 
-
             <div class="progress-track">
 
               <div
@@ -811,7 +963,6 @@
             </div>
 
           </div>
-
 
           <div class="macro-card">
 
@@ -830,7 +981,6 @@
 
             </div>
 
-
             <div class="progress-track">
 
               <div
@@ -841,7 +991,6 @@
             </div>
 
           </div>
-
 
           <div class="macro-card">
 
@@ -860,7 +1009,6 @@
 
             </div>
 
-
             <div class="progress-track">
 
               <div
@@ -876,9 +1024,6 @@
 
       </section>
 
-
-      <!-- POSIŁKI -->
-
       <section class="card">
 
         <div class="section-header">
@@ -886,7 +1031,6 @@
           <h2>
             Posiłki
           </h2>
-
 
           <button
             class="secondary-btn"
@@ -898,13 +1042,9 @@
 
         </div>
 
-
         <div id="meals"></div>
 
       </section>
-
-
-      <!-- MAKRO I MIKRO -->
 
       <section class="card">
 
@@ -924,7 +1064,6 @@
 
         </button>
 
-
         <div
           id="macroMicroContent"
           class="collapse-content"
@@ -934,23 +1073,17 @@
             Makro
           </h3>
 
-
           <div id="macroDetails"></div>
-
 
           <h3 style="margin:25px 0 12px;">
             Mikro
           </h3>
-
 
           <div id="micros"></div>
 
         </div>
 
       </section>
-
-
-      <!-- HISTORIA -->
 
       <section class="card">
 
@@ -981,13 +1114,11 @@
 
           </span>
 
-
           <span class="collapse-arrow">
             ⌄
           </span>
 
         </button>
-
 
         <div
           id="historyContent"
@@ -1001,7 +1132,6 @@
       </section>
 
     </section>
-
 
     <!-- =========================
          STRONA TRENINGÓW
@@ -1020,7 +1150,6 @@
         ← Strona główna
       </button>
 
-
       <header style="margin-bottom:25px;">
 
         <div class="brand">
@@ -1033,8 +1162,9 @@
 
       </header>
 
-
-      <!-- KALENDARZ -->
+      <!-- =========================
+           KALENDARZ
+      ========================== -->
 
       <section class="card">
 
@@ -1043,7 +1173,6 @@
           <h2>
             Kalendarz treningów
           </h2>
-
 
           <div
             style="
@@ -1060,7 +1189,6 @@
               ←
             </button>
 
-
             <button
               class="secondary-btn"
               id="nextMonth"
@@ -1073,7 +1201,6 @@
 
         </div>
 
-
         <div
           id="calendarTitle"
           style="
@@ -1082,7 +1209,6 @@
             margin-bottom:12px;
           "
         ></div>
-
 
         <div class="calendar">
 
@@ -1098,7 +1224,6 @@
 
           </div>
 
-
           <div
             id="calendarGrid"
             class="calendar-row"
@@ -1108,8 +1233,9 @@
 
       </section>
 
-
-      <!-- PLANOWANIE -->
+      <!-- =========================
+           PLANOWANIE
+      ========================== -->
 
       <section class="card">
 
@@ -1121,14 +1247,12 @@
 
         </div>
 
-
         <div class="form-grid">
 
           <input
             id="planDate"
             type="date"
           >
-
 
           <select id="planType">
 
@@ -1148,6 +1272,10 @@
               Podbiegi
             </option>
 
+            <option value="Tempo">
+              Tempo
+            </option>
+
             <option value="Siłownia">
               Siłownia
             </option>
@@ -1162,28 +1290,24 @@
 
           </select>
 
-
           <input
             id="planName"
             placeholder="Nazwa treningu"
             class="form-full"
           >
 
-
           <input
             id="planCalories"
             type="number"
-            placeholder="Przypuszczalne spalone kcal"
+            placeholder="Spalone kcal"
           >
-
 
           <input
             id="planDistance"
             type="number"
             step="0.1"
-            placeholder="Planowany dystans km"
+            placeholder="Dystans (km)"
           >
-
 
           <textarea
             id="planNote"
@@ -1191,7 +1315,6 @@
             placeholder="Opis / założenia treningu"
             class="form-full"
           ></textarea>
-
 
           <button
             id="savePlanBtn"
@@ -1205,8 +1328,9 @@
 
       </section>
 
-
-      <!-- WPROWADZANIE WYKONANEGO TRENINGU -->
+      <!-- =========================
+           WYKONANE TRENINGI
+      ========================== -->
 
       <section class="card">
 
@@ -1215,7 +1339,6 @@
           <h2>
             Wykonane treningi
           </h2>
-
 
           <button
             class="secondary-btn"
@@ -1226,7 +1349,6 @@
           </button>
 
         </div>
-
 
         <div
           id="workoutForm"
@@ -1240,12 +1362,10 @@
               type="date"
             >
 
-
             <input
               id="wType"
               placeholder="Rodzaj, np. Easy Run"
             >
-
 
             <input
               id="wDistance"
@@ -1254,18 +1374,15 @@
               placeholder="Dystans km"
             >
 
-
             <input
               id="wTime"
               placeholder="Czas, np. 52:34"
             >
 
-
             <input
               id="wPace"
               placeholder="Tempo, np. 5:18/km"
             >
-
 
             <input
               id="wHr"
@@ -1273,13 +1390,11 @@
               placeholder="Średnie HR"
             >
 
-
             <input
               id="wMaxHr"
               type="number"
               placeholder="Maksymalne HR"
             >
-
 
             <input
               id="wCalories"
@@ -1287,20 +1402,17 @@
               placeholder="Spalone kcal"
             >
 
-
             <input
               id="wCadence"
               type="number"
               placeholder="Kadencja"
             >
 
-
             <input
               id="wElevation"
               type="number"
               placeholder="Przewyższenie m"
             >
-
 
             <textarea
               id="wNote"
@@ -1309,13 +1421,11 @@
               class="form-full"
             ></textarea>
 
-
             <div class="form-full">
 
               <label style="font-weight:750;">
                 Screeny z Garmina — maks. 4
               </label>
-
 
               <input
                 id="wScreens"
@@ -1325,14 +1435,12 @@
                 style="margin-top:8px;"
               >
 
-
               <div
                 id="screensPreview"
                 class="screens-preview"
               ></div>
 
             </div>
-
 
             <button
               id="saveWorkoutBtn"
@@ -1341,7 +1449,6 @@
             >
               Zapisz trening
             </button>
-
 
             <button
               id="cancelWorkoutBtn"
@@ -1355,7 +1462,6 @@
 
         </div>
 
-
         <div
           id="workouts"
           style="margin-top:18px;"
@@ -1367,17 +1473,15 @@
 
   </main>
 
-
   <div
     id="status"
     class="status hidden"
   ></div>
 
-
-  <!-- =====================================================
-       LOGIKA APLIKACJI
-       Cała obecna logika znajduje się w TrainingPage.js
-  ====================================================== -->
+  <!--
+    Logika aplikacji
+    Cała logika znajduje się w TrainingPage.js
+  -->
 
   <script src="TrainingPage.js"></script>
 
