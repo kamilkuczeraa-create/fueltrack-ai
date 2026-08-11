@@ -170,88 +170,6 @@
     }
 
     /* =====================================================
-       DASHBOARD ŻYWIENIOWY
-    ===================================================== */
-
-    .dashboard-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .dashboard-nutrition {
-      background: #242a3a;
-      border-radius: 20px;
-      padding: 16px;
-      overflow: hidden;
-    }
-
-    .dashboard-nutrition-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .dashboard-nutrition-name {
-      color: #b8bfcc;
-      font-size: 13px;
-      font-weight: 750;
-    }
-
-    .dashboard-nutrition-value {
-      font-size: 18px;
-      font-weight: 850;
-      white-space: nowrap;
-    }
-
-    .dashboard-nutrition-bottom {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      margin-top: 7px;
-      color: #8f96a6;
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .dashboard-progress {
-      width: 100%;
-      height: 8px;
-      border-radius: 999px;
-      background: #3a4050;
-      overflow: hidden;
-    }
-
-    .dashboard-progress-bar {
-      width: 0%;
-      height: 100%;
-      border-radius: 999px;
-      transition:
-        width .35s ease,
-        background .25s ease;
-      background: #4e7cff;
-    }
-
-    .dashboard-progress-bar.good {
-      background: #37c779;
-    }
-
-    .dashboard-progress-bar.warning {
-      background: #f5a623;
-    }
-
-    .dashboard-progress-bar.danger {
-      background: #ed5b5b;
-    }
-
-    .dashboard-progress-bar.low {
-      background: #4e7cff;
-    }
-
-    /* =====================================================
        BILANS
     ===================================================== */
 
@@ -359,14 +277,8 @@
       margin-top: 10px;
     }
 
-    .dashboard-empty {
-      color: #858b98;
-      font-size: 13px;
-      line-height: 1.4;
-    }
-
     /* =====================================================
-       NAVIGACJA
+       NAWIGACJA
     ===================================================== */
 
     .nav-grid {
@@ -440,6 +352,10 @@
       border-color: #3565e8;
     }
 
+    /* =====================================================
+       MAKRO
+    ===================================================== */
+
     .macro-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -487,6 +403,60 @@
       background: #4e7cff;
       transition: width .25s ease;
     }
+
+    /* =====================================================
+       CELE ŻYWIENIOWE
+    ===================================================== */
+
+    .goals-card {
+      background: white;
+      border-radius: 28px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, .045);
+    }
+
+    .goals-description {
+      color: #777e8d;
+      font-size: 14px;
+      line-height: 1.45;
+      margin-top: 7px;
+      margin-bottom: 20px;
+    }
+
+    .goals-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .goal-field {
+      background: #f5f6fa;
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .goal-field label {
+      display: block;
+      color: #666d7c;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 7px;
+    }
+
+    .goal-field input {
+      background: white;
+    }
+
+    .goals-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    /* =====================================================
+       POSIŁKI
+    ===================================================== */
 
     .meal {
       padding: 18px 0;
@@ -758,8 +728,8 @@
       .nav-grid,
       .macro-grid,
       .summary-grid,
-      .dashboard-grid,
-      .dashboard-training-grid {
+      .dashboard-training-grid,
+      .goals-grid {
         grid-template-columns: 1fr 1fr;
       }
 
@@ -832,14 +802,6 @@
         font-size: 23px;
       }
 
-      .dashboard-nutrition {
-        padding: 13px;
-      }
-
-      .dashboard-nutrition-value {
-        font-size: 16px;
-      }
-
       .dashboard-training-card {
         padding: 16px;
       }
@@ -847,6 +809,11 @@
       .dashboard-training-title {
         font-size: 17px;
       }
+
+      .goals-actions {
+        flex-direction: column;
+      }
+
     }
 
     @media (max-width: 430px) {
@@ -927,6 +894,11 @@
       .dashboard-training-grid {
         grid-template-columns: 1fr;
       }
+
+      .goals-grid {
+        grid-template-columns: 1fr;
+      }
+
     }
 
   </style>
@@ -958,7 +930,7 @@
 
 
     <!-- ===================================================
-         PODSUMOWANIE
+         PODSUMOWANIE DNIA
     ==================================================== -->
 
     <section class="card dark-card">
@@ -1060,205 +1032,7 @@
 
 
     <!-- ===================================================
-         POSTĘP ŻYWIENIOWY
-    ==================================================== -->
-
-    <section class="card dark-card">
-
-      <div class="section-header">
-
-        <div>
-          <div class="summary-title">
-            Realizacja celów
-          </div>
-
-          <div
-            style="
-              font-size:20px;
-              font-weight:850;
-            "
-          >
-            Dzisiejsze odżywianie
-          </div>
-        </div>
-
-      </div>
-
-
-      <div class="dashboard-grid">
-
-        <div class="dashboard-nutrition">
-
-          <div class="dashboard-nutrition-top">
-
-            <span class="dashboard-nutrition-name">
-              🔥 Kalorie
-            </span>
-
-            <span
-              id="dashKcalValue"
-              class="dashboard-nutrition-value"
-            >
-              0 / 0
-            </span>
-
-          </div>
-
-          <div class="dashboard-progress">
-
-            <div
-              id="dashKcalBar"
-              class="dashboard-progress-bar"
-            ></div>
-
-          </div>
-
-          <div class="dashboard-nutrition-bottom">
-
-            <span>
-              <span id="dashKcalPercent">
-                0%
-              </span>
-            </span>
-
-            <span id="dashKcalRemaining">
-              brak celu
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div class="dashboard-nutrition">
-
-          <div class="dashboard-nutrition-top">
-
-            <span class="dashboard-nutrition-name">
-              🥩 Białko
-            </span>
-
-            <span
-              id="dashProteinValue"
-              class="dashboard-nutrition-value"
-            >
-              0 / 0 g
-            </span>
-
-          </div>
-
-          <div class="dashboard-progress">
-
-            <div
-              id="dashProteinBar"
-              class="dashboard-progress-bar"
-            ></div>
-
-          </div>
-
-          <div class="dashboard-nutrition-bottom">
-
-            <span id="dashProteinPercent">
-              0%
-            </span>
-
-            <span id="dashProteinRemaining">
-              brak celu
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div class="dashboard-nutrition">
-
-          <div class="dashboard-nutrition-top">
-
-            <span class="dashboard-nutrition-name">
-              🍚 Węglowodany
-            </span>
-
-            <span
-              id="dashCarbsValue"
-              class="dashboard-nutrition-value"
-            >
-              0 / 0 g
-            </span>
-
-          </div>
-
-          <div class="dashboard-progress">
-
-            <div
-              id="dashCarbsBar"
-              class="dashboard-progress-bar"
-            ></div>
-
-          </div>
-
-          <div class="dashboard-nutrition-bottom">
-
-            <span id="dashCarbsPercent">
-              0%
-            </span>
-
-            <span id="dashCarbsRemaining">
-              brak celu
-            </span>
-
-          </div>
-
-        </div>
-
-
-        <div class="dashboard-nutrition">
-
-          <div class="dashboard-nutrition-top">
-
-            <span class="dashboard-nutrition-name">
-              🥑 Tłuszcz
-            </span>
-
-            <span
-              id="dashFatValue"
-              class="dashboard-nutrition-value"
-            >
-              0 / 0 g
-            </span>
-
-          </div>
-
-          <div class="dashboard-progress">
-
-            <div
-              id="dashFatBar"
-              class="dashboard-progress-bar"
-            ></div>
-
-          </div>
-
-          <div class="dashboard-nutrition-bottom">
-
-            <span id="dashFatPercent">
-              0%
-            </span>
-
-            <span id="dashFatRemaining">
-              brak celu
-            </span>
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- ===================================================
-         BILANS
+         BILANS ENERGETYCZNY
     ==================================================== -->
 
     <section class="balance-card">
@@ -1282,9 +1056,7 @@
 
         <div
           id="dashboardBalanceIcon"
-          style="
-            font-size:34px;
-          "
+          style="font-size:34px;"
         >
           ⚖️
         </div>
@@ -1437,7 +1209,7 @@
         </div>
 
         <div class="nav-description">
-          Fitatu, posiłki, makro, mikro i historia.
+          Fitatu, posiłki, makro, mikro, cele i historia.
         </div>
 
       </button>
@@ -1485,6 +1257,7 @@
       ← Strona główna
     </button>
 
+
     <header class="topbar">
 
       <div>
@@ -1516,6 +1289,130 @@
 
     </header>
 
+
+    <!-- ===================================================
+         CELE ŻYWIENIOWE
+    ==================================================== -->
+
+    <section class="goals-card">
+
+      <div class="section-header">
+
+        <div>
+
+          <h2>
+            Cele żywieniowe
+          </h2>
+
+          <div class="goals-description">
+            Ustaw dzienne cele kalorii i makroskładników.
+            Będą wykorzystywane do porównywania rzeczywistego
+            spożycia z założeniami.
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="goals-grid">
+
+        <div class="goal-field">
+
+          <label for="goalCalories">
+            🔥 Kalorie — kcal
+          </label>
+
+          <input
+            id="goalCalories"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="np. 2200"
+          >
+
+        </div>
+
+
+        <div class="goal-field">
+
+          <label for="goalProtein">
+            🥩 Białko — g
+          </label>
+
+          <input
+            id="goalProtein"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="np. 180"
+          >
+
+        </div>
+
+
+        <div class="goal-field">
+
+          <label for="goalCarbs">
+            🍚 Węglowodany — g
+          </label>
+
+          <input
+            id="goalCarbs"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="np. 220"
+          >
+
+        </div>
+
+
+        <div class="goal-field">
+
+          <label for="goalFat">
+            🥑 Tłuszcz — g
+          </label>
+
+          <input
+            id="goalFat"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="np. 70"
+          >
+
+        </div>
+
+      </div>
+
+
+      <div class="goals-actions">
+
+        <button
+          id="saveGoalsBtn"
+          class="primary-btn"
+          type="button"
+        >
+          Zapisz cele
+        </button>
+
+        <button
+          id="resetGoalsBtn"
+          class="secondary-btn"
+          type="button"
+        >
+          Wyczyść cele
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         WYBRANY DZIEŃ
+    ==================================================== -->
 
     <section class="card dark-card">
 
@@ -1658,6 +1555,10 @@
     </section>
 
 
+    <!-- ===================================================
+         POSIŁKI
+    ==================================================== -->
+
     <section class="card">
 
       <div class="section-header">
@@ -1680,6 +1581,10 @@
 
     </section>
 
+
+    <!-- ===================================================
+         MAKRO I MIKRO
+    ==================================================== -->
 
     <section class="card">
 
@@ -1721,6 +1626,10 @@
 
     </section>
 
+
+    <!-- ===================================================
+         HISTORIA
+    ==================================================== -->
 
     <section class="card">
 
@@ -1803,7 +1712,9 @@
     </header>
 
 
-    <!-- KALENDARZ -->
+    <!-- ===================================================
+         KALENDARZ
+    ==================================================== -->
 
     <section class="card">
 
@@ -1876,7 +1787,9 @@
     </section>
 
 
-    <!-- PLANOWANIE -->
+    <!-- ===================================================
+         PLANOWANIE
+    ==================================================== -->
 
     <section class="card">
 
@@ -1977,7 +1890,9 @@
     </section>
 
 
-    <!-- WYKONANE -->
+    <!-- ===================================================
+         WYKONANE TRENINGI
+    ==================================================== -->
 
     <section class="card">
 
