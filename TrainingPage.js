@@ -1,12 +1,19 @@
 /* =========================================================
    FuelTrack AI — TrainingPage.js
-   Dashboard + treningi
+   Dashboard + treningi + cele żywieniowe + bilans
 ========================================================= */
 
 const WORKOUT_KEY = "fueltrack_workouts_v04";
 const PLAN_KEY = "fueltrack_training_plan_v01";
 const FOOD_KEY = "fueltrack_food_v04";
 const GOALS_KEY = "fueltrack_goals_v04";
+
+const DEFAULT_GOALS = {
+  kcal: 2200,
+  protein: 180,
+  carbs: 200,
+  fat: 70
+};
 
 let plannedWorkouts = loadJSON(PLAN_KEY, []);
 let completedWorkouts = loadJSON(WORKOUT_KEY, []);
@@ -59,7 +66,6 @@ function esc(value) {
 
 
 function getToday() {
-
   const d = new Date();
 
   return [
@@ -71,7 +77,6 @@ function getToday() {
 
 
 function formatDate(date) {
-
   if (!date) return "";
 
   const parts = String(date).split("-");
@@ -85,11 +90,8 @@ function formatDate(date) {
 
 
 function loadJSON(key, fallback) {
-
   try {
-
-    const raw =
-      localStorage.getItem(key);
+    const raw = localStorage.getItem(key);
 
     if (!raw) {
       return fallback;
@@ -98,7 +100,6 @@ function loadJSON(key, fallback) {
     return JSON.parse(raw);
 
   } catch (error) {
-
     console.error(
       "Błąd odczytu localStorage:",
       error
@@ -110,7 +111,6 @@ function loadJSON(key, fallback) {
 
 
 function saveData() {
-
   localStorage.setItem(
     PLAN_KEY,
     JSON.stringify(plannedWorkouts)
@@ -123,11 +123,18 @@ function saveData() {
 }
 
 
+function saveGoals(goals) {
+  localStorage.setItem(
+    GOALS_KEY,
+    JSON.stringify(goals)
+  );
+}
+
+
 function showStatus(
   message,
   duration = 2500
 ) {
-
   const status =
     document.getElementById("status");
 
@@ -141,12 +148,499 @@ function showStatus(
 
   showStatus.timer =
     setTimeout(() => {
-
-      status.classList.add(
-        "hidden"
-      );
-
+      status.classList.add("hidden");
     }, duration);
+}
+
+
+/* =========================================================
+   CELE ŻYWIENIOWE
+========================================================= */
+
+function getNutritionGoals() {
+  const stored =
+    loadJSON(
+      GOALS_KEY,
+      DEFAULT_GOALS
+    );
+
+  return {
+    kcal: num(
+      stored?.kcal ??
+      stored?.calories ??
+      stored?.calorieGoal ??
+      stored?.dailyCalories ??
+      DEFAULT_GOALS.kcal
+    ),
+
+    protein: num(
+      stored?.protein ??
+      stored?.proteinGoal ??
+      stored?.dailyProtein ??
+      DEFAULT_GOALS.protein
+    ),
+
+    carbs: num(
+      stored?.carbs ??
+      stored?.carbsGoal ??
+      stored?.dailyCarbs ??
+      DEFAULT_GOALS.carbs
+    ),
+
+    fat: num(
+      stored?.fat ??
+      stored?.fatGoal ??
+      stored?.dailyFat ??
+      DEFAULT_GOALS.fat
+    )
+  };
+}
+
+
+function setupNutritionGoals() {
+
+  const goals =
+    getNutritionGoals();
+
+
+  const kcal =
+    document.getElementById(
+      "goalKcal"
+    );
+
+  const protein =
+    document.getElementById(
+      "goalProtein"
+    );
+
+  const carbs =
+    document.getElementById(
+      "goalCarbs"
+    );
+
+  const fat =
+    document.getElementById(
+      "goalFat"
+    );
+
+
+  if (kcal) {
+    kcal.value = goals.kcal;
+  }
+
+  if (protein) {
+    protein.value = goals.protein;
+  }
+
+  if (carbs) {
+    carbs.value = goals.carbs;
+  }
+
+  if (fat) {
+    fat.value = goals.fat;
+  }
+
+
+  const saveBtn =
+    document.getElementById(
+      "saveNutritionGoalsBtn"
+    );
+
+
+  if (saveBtn) {
+
+    saveBtn.addEventListener(
+      "click",
+      saveNutritionGoalsFromForm
+    );
+
+  }
+}
+
+
+function saveNutritionGoalsFromForm() {
+
+  const kcal =
+    num(
+      document.getElementById(
+        "goalKcal"
+      )?.value
+    );
+
+  const protein =
+    num(
+      document.getElementById(
+        "goalProtein"
+      )?.value
+    );
+
+  const carbs =
+    num(
+      document.getElementById(
+        "goalCarbs"
+      )?.value
+    );
+
+  const fat =
+    num(
+      document.getElementById(
+        "goalFat"
+      )?.value
+    );
+
+
+  if (
+    kcal <= 0 ||
+    protein <= 0 ||
+    carbs <= 0 ||
+    fat <= 0
+  ) {
+
+    alert(
+      "Wszystkie cele muszą być większe od 0."
+    );
+
+    return;
+  }
+
+
+  const goals = {
+    kcal,
+    protein,
+    carbs,
+    fat
+  };
+
+
+  saveGoals(goals);
+
+  renderDashboard();
+  renderNutritionGoals();
+
+  showStatus(
+    "Cele żywieniowe zostały zapisane."
+  );
+}
+
+
+/*
+   Jeżeli index.html nie posiada jeszcze panelu
+   celów, tworzymy go automatycznie.
+*/
+
+function ensureNutritionGoalsPanel() {
+
+  const existing =
+    document.getElementById(
+      "nutritionGoalsPanel"
+    );
+
+
+  if (existing) {
+    return;
+  }
+
+
+  const home =
+    document.getElementById(
+      "homePage"
+    );
+
+
+  if (!home) {
+    return;
+  }
+
+
+  const panel =
+    document.createElement("section");
+
+
+  panel.id =
+    "nutritionGoalsPanel";
+
+
+  panel.style.cssText = `
+    margin:20px 0;
+    padding:20px;
+    border:1px solid #e3e6ec;
+    border-radius:18px;
+    background:#ffffff;
+    box-shadow:0 4px 18px rgba(0,0,0,0.05);
+  `;
+
+
+  panel.innerHTML = `
+
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:18px;
+      flex-wrap:wrap;
+    ">
+
+      <div>
+
+        <div style="
+          font-size:20px;
+          font-weight:800;
+          color:#151922;
+        ">
+          🎯 Cele żywieniowe
+        </div>
+
+        <div style="
+          margin-top:5px;
+          font-size:13px;
+          color:#777e8d;
+        ">
+          Ustaw cele raz. FuelTrack AI wykorzystuje je
+          na całej stronie.
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div style="
+      display:grid;
+      grid-template-columns:
+        repeat(auto-fit,minmax(140px,1fr));
+      gap:12px;
+    ">
+
+      <label style="
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        font-size:13px;
+        font-weight:700;
+      ">
+
+        Kalorie
+
+        <input
+          id="goalKcal"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:11px 12px;
+            border:1px solid #d9dde5;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <span style="
+          color:#777e8d;
+          font-size:12px;
+          font-weight:500;
+        ">
+          kcal / dzień
+        </span>
+
+      </label>
+
+
+      <label style="
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        font-size:13px;
+        font-weight:700;
+      ">
+
+        Białko
+
+        <input
+          id="goalProtein"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:11px 12px;
+            border:1px solid #d9dde5;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <span style="
+          color:#777e8d;
+          font-size:12px;
+          font-weight:500;
+        ">
+          g / dzień
+        </span>
+
+      </label>
+
+
+      <label style="
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        font-size:13px;
+        font-weight:700;
+      ">
+
+        Węglowodany
+
+        <input
+          id="goalCarbs"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:11px 12px;
+            border:1px solid #d9dde5;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <span style="
+          color:#777e8d;
+          font-size:12px;
+          font-weight:500;
+        ">
+          g / dzień
+        </span>
+
+      </label>
+
+
+      <label style="
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        font-size:13px;
+        font-weight:700;
+      ">
+
+        Tłuszcz
+
+        <input
+          id="goalFat"
+          type="number"
+          min="1"
+          step="1"
+          inputmode="numeric"
+          style="
+            width:100%;
+            box-sizing:border-box;
+            padding:11px 12px;
+            border:1px solid #d9dde5;
+            border-radius:10px;
+            font-size:16px;
+          "
+        >
+
+        <span style="
+          color:#777e8d;
+          font-size:12px;
+          font-weight:500;
+        ">
+          g / dzień
+        </span>
+
+      </label>
+
+    </div>
+
+
+    <button
+      id="saveNutritionGoalsBtn"
+      type="button"
+      style="
+        margin-top:16px;
+        width:100%;
+        border:0;
+        border-radius:11px;
+        padding:12px 16px;
+        background:#3565e8;
+        color:#ffffff;
+        font-size:15px;
+        font-weight:800;
+        cursor:pointer;
+      "
+    >
+      Zapisz cele żywieniowe
+    </button>
+
+  `;
+
+
+  /*
+     Wstawiamy panel na początku strony głównej,
+     żeby był jednym centralnym miejscem ustawiania celów.
+  */
+
+  home.insertBefore(
+    panel,
+    home.firstChild
+  );
+
+
+  setupNutritionGoals();
+}
+
+
+function renderNutritionGoals() {
+
+  const goals =
+    getNutritionGoals();
+
+
+  const kcal =
+    document.getElementById(
+      "goalKcal"
+    );
+
+  const protein =
+    document.getElementById(
+      "goalProtein"
+    );
+
+  const carbs =
+    document.getElementById(
+      "goalCarbs"
+    );
+
+  const fat =
+    document.getElementById(
+      "goalFat"
+    );
+
+
+  if (kcal) {
+    kcal.value = goals.kcal;
+  }
+
+  if (protein) {
+    protein.value = goals.protein;
+  }
+
+  if (carbs) {
+    carbs.value = goals.carbs;
+  }
+
+  if (fat) {
+    fat.value = goals.fat;
+  }
 }
 
 
@@ -173,21 +667,15 @@ function showPage(page) {
 
 
   if (home) {
-    home.classList.add(
-      "hidden"
-    );
+    home.classList.add("hidden");
   }
 
   if (nutrition) {
-    nutrition.classList.add(
-      "hidden"
-    );
+    nutrition.classList.add("hidden");
   }
 
   if (training) {
-    training.classList.add(
-      "hidden"
-    );
+    training.classList.add("hidden");
   }
 
 
@@ -196,11 +684,10 @@ function showPage(page) {
     home
   ) {
 
-    home.classList.remove(
-      "hidden"
-    );
+    home.classList.remove("hidden");
 
     renderHomeSummary();
+    renderNutritionGoals();
     renderDashboard();
 
   }
@@ -211,9 +698,7 @@ function showPage(page) {
     nutrition
   ) {
 
-    nutrition.classList.remove(
-      "hidden"
-    );
+    nutrition.classList.remove("hidden");
 
   }
 
@@ -223,9 +708,7 @@ function showPage(page) {
     training
   ) {
 
-    training.classList.remove(
-      "hidden"
-    );
+    training.classList.remove("hidden");
 
     renderCalendar();
     renderWorkouts();
@@ -262,10 +745,8 @@ function setupNavigation() {
     goTraining.addEventListener(
       "click",
       () => {
-
         window.location.hash =
           "#training";
-
       }
     );
 
@@ -277,10 +758,8 @@ function setupNavigation() {
     goNutrition.addEventListener(
       "click",
       () => {
-
         window.location.hash =
           "#nutrition";
-
       }
     );
 
@@ -292,10 +771,7 @@ function setupNavigation() {
     backHomeTraining.addEventListener(
       "click",
       () => {
-
-        window.location.hash =
-          "";
-
+        window.location.hash = "";
       }
     );
 
@@ -307,10 +783,7 @@ function setupNavigation() {
     backHomeNutrition.addEventListener(
       "click",
       () => {
-
-        window.location.hash =
-          "";
-
+        window.location.hash = "";
       }
     );
 
@@ -322,15 +795,14 @@ function setupNavigation() {
       "dashboardLastWorkout"
     );
 
+
   if (lastWorkout) {
 
     lastWorkout.addEventListener(
       "click",
       () => {
-
         window.location.hash =
           "#training";
-
       }
     );
 
@@ -342,15 +814,14 @@ function setupNavigation() {
       "dashboardNextWorkout"
     );
 
+
   if (nextWorkout) {
 
     nextWorkout.addEventListener(
       "click",
       () => {
-
         window.location.hash =
           "#training";
-
       }
     );
 
@@ -369,11 +840,10 @@ function setupPlanForm() {
       "planDate"
     );
 
-  if (planDate) {
 
+  if (planDate) {
     planDate.value =
       getToday();
-
   }
 
 
@@ -381,6 +851,7 @@ function setupPlanForm() {
     document.getElementById(
       "savePlanBtn"
     );
+
 
   if (savePlanBtn) {
 
@@ -477,6 +948,7 @@ function addPlannedWorkout() {
     calories,
     distance,
     note
+
   };
 
 
@@ -489,7 +961,6 @@ function addPlannedWorkout() {
   clearPlanForm();
 
   renderCalendar();
-
   renderDashboard();
 
   showStatus(
@@ -525,6 +996,7 @@ function clearPlanForm() {
       "planDate"
     );
 
+
   if (date) {
     date.value =
       getToday();
@@ -535,6 +1007,7 @@ function clearPlanForm() {
     document.getElementById(
       "planType"
     );
+
 
   if (type) {
     type.value =
@@ -556,7 +1029,6 @@ function deletePlannedWorkout(id) {
   saveData();
 
   renderCalendar();
-
   renderDashboard();
 
   showStatus(
@@ -719,6 +1191,7 @@ function renderCalendar() {
         "div"
       );
 
+
     cell.className =
       "calendar-day";
 
@@ -802,10 +1275,7 @@ function renderCalendar() {
 
 
     if (!isCurrentMonth) {
-
-      cell.style.opacity =
-        "0.45";
-
+      cell.style.opacity = "0.45";
     }
 
 
@@ -814,11 +1284,14 @@ function renderCalendar() {
         "div"
       );
 
+
     number.className =
       "calendar-number";
 
+
     number.textContent =
       dayNumber;
+
 
     cell.appendChild(
       number
@@ -846,14 +1319,18 @@ function renderCalendar() {
             "div"
           );
 
+
         event.className =
           "calendar-event";
+
 
         event.style.background =
           "#e8edff";
 
+
         event.style.color =
           "#294da9";
+
 
         event.innerHTML =
           `🎯 ${esc(
@@ -862,8 +1339,10 @@ function renderCalendar() {
             "Trening"
           )}`;
 
+
         event.title =
           workout.note || "";
+
 
         cell.appendChild(
           event
@@ -881,20 +1360,25 @@ function renderCalendar() {
             "div"
           );
 
+
         event.className =
           "calendar-event";
+
 
         event.style.background =
           "#e4f6ed";
 
+
         event.style.color =
           "#17613d";
+
 
         event.innerHTML =
           `✓ ${esc(
             workout.type ||
             "Trening"
           )}`;
+
 
         cell.appendChild(
           event
@@ -924,6 +1408,7 @@ function renderCalendar() {
             "planDate"
           );
 
+
         if (planDate) {
           planDate.value =
             date;
@@ -934,6 +1419,7 @@ function renderCalendar() {
           document.getElementById(
             "wDate"
           );
+
 
         if (workoutDate) {
           workoutDate.value =
@@ -1007,6 +1493,7 @@ function setupWorkoutForm() {
           document.getElementById(
             "workoutForm"
           );
+
 
         if (form) {
 
@@ -1202,7 +1689,8 @@ function addCompletedWorkout() {
     note,
 
     screens:
-      selectedWorkoutScreens
+      [...selectedWorkoutScreens]
+
   };
 
 
@@ -1219,6 +1707,7 @@ function addCompletedWorkout() {
     document.getElementById(
       "workoutForm"
     );
+
 
   if (form) {
 
@@ -1275,11 +1764,10 @@ function clearWorkoutForm() {
       "wDate"
     );
 
-  if (date) {
 
+  if (date) {
     date.value =
       getToday();
-
   }
 
 
@@ -1288,24 +1776,19 @@ function clearWorkoutForm() {
       "wScreens"
     );
 
+
   if (file) {
-
-    file.value =
-      "";
-
+    file.value = "";
   }
 
 
-  selectedWorkoutScreens =
-    [];
+  selectedWorkoutScreens = [];
 
   renderScreensPreview();
 }
 
 
-function deleteCompletedWorkout(
-  id
-) {
+function deleteCompletedWorkout(id) {
 
   const confirmed =
     confirm(
@@ -1372,11 +1855,9 @@ function setupScreens() {
           "Możesz dodać maksymalnie 4 screeny."
         );
 
-        input.value =
-          "";
+        input.value = "";
 
-        selectedWorkoutScreens =
-          [];
+        selectedWorkoutScreens = [];
 
         renderScreensPreview();
 
@@ -1384,8 +1865,7 @@ function setupScreens() {
       }
 
 
-      selectedWorkoutScreens =
-        [];
+      selectedWorkoutScreens = [];
 
 
       files.forEach(
@@ -1432,8 +1912,7 @@ function renderScreensPreview() {
   }
 
 
-  preview.innerHTML =
-    "";
+  preview.innerHTML = "";
 
 
   selectedWorkoutScreens
@@ -1446,11 +1925,12 @@ function renderScreensPreview() {
             "img"
           );
 
-        img.src =
-          src;
+
+        img.src = src;
 
         img.alt =
           "Screen z Garmina";
+
 
         preview.appendChild(
           img
@@ -1462,7 +1942,7 @@ function renderScreensPreview() {
 
 
 /* =========================================================
-   WYŚWIETLANIE TRENINGÓW
+   WYSWIETLANIE TRENINGÓW
 ========================================================= */
 
 function renderWorkouts(
@@ -1510,9 +1990,11 @@ function renderWorkouts(
   ) {
 
     container.innerHTML =
-      `<div class="empty">
+      `
+      <div class="empty">
         Brak zapisanych treningów.
-      </div>`;
+      </div>
+      `;
 
     return;
   }
@@ -1731,7 +2213,7 @@ function renderWorkoutCard(
                   src =>
                     `
                     <img
-                      src="${src}"
+                      src="${esc(src)}"
                       alt="Screen z Garmina"
                     >
                     `
@@ -1769,69 +2251,8 @@ function renderWorkoutCard(
 
 
 /* =========================================================
-   DASHBOARD — POMOCNICZE
+   ŻYWIENIE — DANE
 ========================================================= */
-
-function getNutritionGoals() {
-
-  const goals =
-    loadJSON(
-      GOALS_KEY,
-      {}
-    );
-
-
-  /*
-    Obsługujemy kilka możliwych nazw,
-    żeby nie rozwalić wcześniejszych
-    danych aplikacji.
-  */
-
-  const kcal =
-    num(
-      goals.kcal ??
-      goals.calories ??
-      goals.calorieGoal ??
-      goals.dailyCalories ??
-      0
-    );
-
-
-  const protein =
-    num(
-      goals.protein ??
-      goals.proteinGoal ??
-      goals.dailyProtein ??
-      0
-    );
-
-
-  const carbs =
-    num(
-      goals.carbs ??
-      goals.carbsGoal ??
-      goals.dailyCarbs ??
-      0
-    );
-
-
-  const fat =
-    num(
-      goals.fat ??
-      goals.fatGoal ??
-      goals.dailyFat ??
-      0
-    );
-
-
-  return {
-    kcal,
-    protein,
-    carbs,
-    fat
-  };
-}
-
 
 function getStoredFood() {
 
@@ -1842,54 +2263,132 @@ function getStoredFood() {
 }
 
 
-function findFoodDay(
-  date
-) {
+function findFoodDay(date) {
 
   const food =
     getStoredFood();
 
 
-  if (
-    !Array.isArray(food)
-  ) {
+  if (!food) {
     return null;
   }
 
 
   /*
-    Najczęstszy wariant:
-    tablica obiektów posiadających date.
+     Wariant 1:
+     tablica obiektów:
+     [
+       {
+         date: "2026-08-11",
+         kcal: ...
+       }
+     ]
   */
 
-  const direct =
-    food.find(
-      item =>
-        item &&
-        (
-          item.date === date ||
-          item.day === date ||
-          item.data === date
-        )
-    );
+  if (Array.isArray(food)) {
+
+    const direct =
+      food.find(
+        item =>
+          item &&
+          (
+            item.date === date ||
+            item.day === date ||
+            item.data === date
+          )
+      );
 
 
-  if (direct) {
-    return direct;
+    if (direct) {
+      return direct;
+    }
+
+
+    /*
+       Możliwe, że import Fitatu zapisuje
+       pojedyncze posiłki zamiast sum dnia.
+       Wtedy agregujemy je po dacie.
+    */
+
+    const sameDay =
+      food.filter(
+        item =>
+          item &&
+          (
+            item.date === date ||
+            item.day === date ||
+            item.data === date
+          )
+      );
+
+
+    if (sameDay.length > 0) {
+
+      return {
+        date,
+
+        kcal:
+          sameDay.reduce(
+            (sum, item) =>
+              sum +
+              num(
+                item.kcal ??
+                item.calories ??
+                item.energy
+              ),
+            0
+          ),
+
+        protein:
+          sameDay.reduce(
+            (sum, item) =>
+              sum +
+              num(
+                item.protein ??
+                item.proteins
+              ),
+            0
+          ),
+
+        carbs:
+          sameDay.reduce(
+            (sum, item) =>
+              sum +
+              num(
+                item.carbs ??
+                item.carbohydrates
+              ),
+            0
+          ),
+
+        fat:
+          sameDay.reduce(
+            (sum, item) =>
+              sum +
+              num(
+                item.fat ??
+                item.fats
+              ),
+            0
+          )
+      };
+
+    }
+
   }
 
 
   /*
-    Drugi wariant:
-    obiekt:
-    {
-      "2026-08-11": {...}
-    }
+     Wariant 2:
+     obiekt:
+     {
+       "2026-08-11": {...}
+     }
   */
 
   if (
     !Array.isArray(food) &&
-    food &&
+    typeof food === "object" &&
     food[date]
   ) {
 
@@ -1902,14 +2401,10 @@ function findFoodDay(
 }
 
 
-function extractNutrition(
-  date
-) {
+function extractNutrition(date) {
 
   const day =
-    findFoodDay(
-      date
-    );
+    findFoodDay(date);
 
 
   if (!day) {
@@ -1924,100 +2419,63 @@ function extractNutrition(
   }
 
 
-  /*
-    Obsługa różnych nazw pól.
-  */
-
-  const kcal =
-    num(
-      day.kcal ??
-      day.calories ??
-      day.energy ??
-      day.totalKcal ??
-      0
-    );
-
-
-  const protein =
-    num(
-      day.protein ??
-      day.proteins ??
-      day.totalProtein ??
-      0
-    );
-
-
-  const carbs =
-    num(
-      day.carbs ??
-      day.carbohydrates ??
-      day.totalCarbs ??
-      0
-    );
-
-
-  const fat =
-    num(
-      day.fat ??
-      day.fats ??
-      day.totalFat ??
-      0
-    );
-
-
   return {
-    kcal,
-    protein,
-    carbs,
-    fat
+
+    kcal:
+      num(
+        day.kcal ??
+        day.calories ??
+        day.energy ??
+        day.totalKcal ??
+        day.totalCalories ??
+        0
+      ),
+
+    protein:
+      num(
+        day.protein ??
+        day.proteins ??
+        day.totalProtein ??
+        0
+      ),
+
+    carbs:
+      num(
+        day.carbs ??
+        day.carbohydrates ??
+        day.totalCarbs ??
+        0
+      ),
+
+    fat:
+      num(
+        day.fat ??
+        day.fats ??
+        day.totalFat ??
+        0
+      )
+
   };
 }
 
 
 /* =========================================================
-   DASHBOARD — PASEK
+   INTELIGENTNE KOLORY
 ========================================================= */
 
-function setDashboardProgress(
-  barId,
-  percentId,
-  remainingId,
-  valueId,
+/*
+   0–84.99%  = zielony
+   85–100%   = pomarańczowy
+   >100%     = czerwony
+
+   Dzięki temu użytkownik nie dostaje czerwonego
+   koloru dopóki faktycznie nie przekroczy celu.
+*/
+
+function getNutritionStatus(
   value,
-  goal,
-  unit = ""
+  goal
 ) {
-
-  const bar =
-    document.getElementById(
-      barId
-    );
-
-  const percent =
-    document.getElementById(
-      percentId
-    );
-
-  const remaining =
-    document.getElementById(
-      remainingId
-    );
-
-  const valueElement =
-    document.getElementById(
-      valueId
-    );
-
-
-  if (
-    !bar ||
-    !percent ||
-    !remaining ||
-    !valueElement
-  ) {
-    return;
-  }
-
 
   const current =
     num(value);
@@ -2026,32 +2484,104 @@ function setDashboardProgress(
     num(goal);
 
 
-  valueElement.textContent =
+  if (target <= 0) {
+
+    return {
+      className: "low",
+      percent: 0,
+      label: "brak celu"
+    };
+
+  }
+
+
+  const percent =
+    (current / target) * 100;
+
+
+  if (percent > 100) {
+
+    return {
+      className: "danger",
+      percent,
+      label: "przekroczono cel"
+    };
+
+  }
+
+
+  if (percent >= 85) {
+
+    return {
+      className: "warning",
+      percent,
+      label: "zbliżasz się do celu"
+    };
+
+  }
+
+
+  return {
+    className: "good",
+    percent,
+    label: "dobry zakres"
+  };
+}
+
+
+function applyDashboardStatus(
+  bar,
+  percent,
+  remaining,
+  value,
+  goal,
+  unit = ""
+) {
+
+  if (
+    !bar ||
+    !percent ||
+    !remaining ||
+    !value
+  ) {
+    return;
+  }
+
+
+  const current =
+    num(value);
+
+
+  const target =
+    num(goal);
+
+
+  value.textContent =
     `${fmt(current)} / ${fmt(target)}${unit}`;
 
 
-  if (
-    target <= 0
-  ) {
+  if (target <= 0) {
 
-    bar.style.width =
-      "0%";
+    bar.style.width = "0%";
 
     bar.className =
       "dashboard-progress-bar low";
 
-    percent.textContent =
-      "—";
+    percent.textContent = "—";
 
     remaining.textContent =
       "brak celu";
 
     return;
+
   }
 
 
-  const rawPercent =
-    (current / target) * 100;
+  const status =
+    getNutritionStatus(
+      current,
+      target
+    );
 
 
   const visualPercent =
@@ -2059,7 +2589,7 @@ function setDashboardProgress(
       100,
       Math.max(
         0,
-        rawPercent
+        status.percent
       )
     );
 
@@ -2069,45 +2599,12 @@ function setDashboardProgress(
 
 
   bar.className =
-    "dashboard-progress-bar";
-
-
-  if (
-    rawPercent < 80
-  ) {
-
-    bar.classList.add(
-      "low"
-    );
-
-  } else if (
-    rawPercent <= 100
-  ) {
-
-    bar.classList.add(
-      "good"
-    );
-
-  } else if (
-    rawPercent <= 110
-  ) {
-
-    bar.classList.add(
-      "warning"
-    );
-
-  } else {
-
-    bar.classList.add(
-      "danger"
-    );
-
-  }
+    `dashboard-progress-bar ${status.className}`;
 
 
   percent.textContent =
     `${Math.round(
-      rawPercent
+      status.percent
     )}%`;
 
 
@@ -2115,9 +2612,7 @@ function setDashboardProgress(
     target - current;
 
 
-  if (
-    difference > 0
-  ) {
+  if (difference > 0) {
 
     remaining.textContent =
       `zostało ${fmt(
@@ -2134,7 +2629,7 @@ function setDashboardProgress(
   } else {
 
     remaining.textContent =
-      `+${fmt(
+      `przekroczono o ${fmt(
         Math.abs(difference)
       )}${unit}`;
 
@@ -2142,19 +2637,139 @@ function setDashboardProgress(
 }
 
 
+function setDashboardProgress(
+  barId,
+  percentId,
+  remainingId,
+  valueId,
+  value,
+  goal,
+  unit = ""
+) {
+
+  const bar =
+    document.getElementById(
+      barId
+    );
+
+
+  const percent =
+    document.getElementById(
+      percentId
+    );
+
+
+  const remaining =
+    document.getElementById(
+      remainingId
+    );
+
+
+  const valueElement =
+    document.getElementById(
+      valueId
+    );
+
+
+  applyDashboardStatus(
+    bar,
+    percent,
+    remaining,
+    valueElement,
+    value,
+    goal,
+    unit
+  );
+}
+
+
 /* =========================================================
    DASHBOARD
 ========================================================= */
 
-function renderDashboard() {
+function getActiveNutritionDate() {
 
   const today =
     getToday();
 
 
-  const nutrition =
+  const todayNutrition =
     extractNutrition(
       today
+    );
+
+
+  if (
+    todayNutrition.kcal > 0 ||
+    todayNutrition.protein > 0 ||
+    todayNutrition.carbs > 0 ||
+    todayNutrition.fat > 0
+  ) {
+
+    return today;
+
+  }
+
+
+  const stored =
+    getStoredFood();
+
+
+  if (
+    Array.isArray(stored)
+  ) {
+
+    const dates =
+      stored
+        .map(
+          item =>
+            item?.date ||
+            item?.day
+        )
+        .filter(Boolean)
+        .sort()
+        .reverse();
+
+
+    if (dates.length) {
+      return dates[0];
+    }
+
+  }
+
+
+  if (
+    stored &&
+    typeof stored === "object" &&
+    !Array.isArray(stored)
+  ) {
+
+    const dates =
+      Object.keys(stored)
+        .sort()
+        .reverse();
+
+
+    if (dates.length) {
+      return dates[0];
+    }
+
+  }
+
+
+  return today;
+}
+
+
+function renderDashboard() {
+
+  const activeDate =
+    getActiveNutritionDate();
+
+
+  const nutrition =
+    extractNutrition(
+      activeDate
     );
 
 
@@ -2162,72 +2777,16 @@ function renderDashboard() {
     getNutritionGoals();
 
 
-  /*
-    Jeżeli bieżący dzień nie ma danych,
-    szukamy ostatniego dnia żywieniowego.
-  */
-
-  let activeDate =
-    today;
-
-
-  if (
-    nutrition.kcal === 0 &&
-    nutrition.protein === 0 &&
-    nutrition.carbs === 0 &&
-    nutrition.fat === 0
-  ) {
-
-    const stored =
-      getStoredFood();
-
-
-    if (
-      Array.isArray(stored)
-    ) {
-
-      const dates =
-        stored
-          .map(
-            item =>
-              item?.date ||
-              item?.day
-          )
-          .filter(Boolean)
-          .sort()
-          .reverse();
-
-
-      if (
-        dates.length
-      ) {
-
-        activeDate =
-          dates[0];
-
-      }
-
-    }
-
-  }
-
-
-  const activeNutrition =
-    extractNutrition(
-      activeDate
-    );
-
-
-  /*
-    KAFELKI
-  */
+  /* =====================================================
+     PASKI
+  ===================================================== */
 
   setDashboardProgress(
     "dashKcalBar",
     "dashKcalPercent",
     "dashKcalRemaining",
     "dashKcalValue",
-    activeNutrition.kcal,
+    nutrition.kcal,
     goals.kcal,
     ""
   );
@@ -2238,7 +2797,7 @@ function renderDashboard() {
     "dashProteinPercent",
     "dashProteinRemaining",
     "dashProteinValue",
-    activeNutrition.protein,
+    nutrition.protein,
     goals.protein,
     " g"
   );
@@ -2249,7 +2808,7 @@ function renderDashboard() {
     "dashCarbsPercent",
     "dashCarbsRemaining",
     "dashCarbsValue",
-    activeNutrition.carbs,
+    nutrition.carbs,
     goals.carbs,
     " g"
   );
@@ -2260,28 +2819,45 @@ function renderDashboard() {
     "dashFatPercent",
     "dashFatRemaining",
     "dashFatValue",
-    activeNutrition.fat,
+    nutrition.fat,
     goals.fat,
     " g"
   );
 
 
-  /*
-    TRENINGI
-  */
+  /* =====================================================
+     TRENINGI
+  ===================================================== */
 
   renderDashboardTraining();
 
 
-  /*
-    BILANS
-  */
+  /* =====================================================
+     BILANS ENERGETYCZNY
+  ===================================================== */
+
+  renderEnergyBalance(
+    activeDate,
+    nutrition,
+    goals
+  );
+}
+
+
+/* =========================================================
+   BILANS ENERGETYCZNY
+========================================================= */
+
+function renderEnergyBalance(
+  date,
+  nutrition,
+  goals
+) {
 
   const sameDayWorkouts =
     completedWorkouts.filter(
       workout =>
-        workout.date ===
-        activeDate
+        workout.date === date
     );
 
 
@@ -2297,12 +2873,34 @@ function renderDashboard() {
 
 
   const foodCalories =
-    activeNutrition.kcal;
+    num(
+      nutrition.kcal
+    );
 
 
-  const balance =
+  /*
+     Podstawowy bilans:
+
+     zjedzone - spalone treningiem
+  */
+
+  const netCalories =
     foodCalories -
     workoutCalories;
+
+
+  /*
+     Bilans względem celu:
+
+     cel - (zjedzone - trening)
+
+     Dodatnia wartość = zostało
+     Ujemna wartość = przekroczono
+  */
+
+  const remainingToGoal =
+    goals.kcal -
+    netCalories;
 
 
   const balanceEl =
@@ -2317,78 +2915,27 @@ function renderDashboard() {
     );
 
 
-  if (balanceEl) {
-
-    if (
-      balance > 0
-    ) {
-
-      balanceEl.textContent =
-        `+${fmt(balance)} kcal`;
-
-    } else if (
-      balance < 0
-    ) {
-
-      balanceEl.textContent =
-        `${fmt(balance)} kcal`;
-
-    } else {
-
-      balanceEl.textContent =
-        "0 kcal";
-
-    }
-
-  }
-
-
-  if (balanceIcon) {
-
-    if (
-      balance > 500
-    ) {
-
-      balanceIcon.textContent =
-        "🔴";
-
-    } else if (
-      balance > 0
-    ) {
-
-      balanceIcon.textContent =
-        "🟠";
-
-    } else if (
-      balance < 0
-    ) {
-
-      balanceIcon.textContent =
-        "🟢";
-
-    } else {
-
-      balanceIcon.textContent =
-        "⚖️";
-
-    }
-
-  }
-
-
   const foodEl =
     document.getElementById(
       "dashboardBalanceFood"
     );
+
 
   const workoutEl =
     document.getElementById(
       "dashboardBalanceWorkout"
     );
 
+
   const goalEl =
     document.getElementById(
       "dashboardBalanceGoal"
+    );
+
+
+  const remainingEl =
+    document.getElementById(
+      "dashboardBalanceRemaining"
     );
 
 
@@ -2422,6 +2969,168 @@ function renderDashboard() {
         : "brak celu";
 
   }
+
+
+  if (remainingEl) {
+
+    if (goals.kcal <= 0) {
+
+      remainingEl.textContent =
+        "brak celu";
+
+    } else if (
+      remainingToGoal > 0
+    ) {
+
+      remainingEl.textContent =
+        `zostało ${fmt(
+          remainingToGoal
+        )} kcal`;
+
+    } else if (
+      remainingToGoal === 0
+    ) {
+
+      remainingEl.textContent =
+        "cel osiągnięty";
+
+    } else {
+
+      remainingEl.textContent =
+        `przekroczono o ${fmt(
+          Math.abs(
+            remainingToGoal
+          )
+        )} kcal`;
+
+    }
+
+  }
+
+
+  /*
+     Kolor bilansu.
+
+     Zielony:
+     jesteśmy w rozsądnym zakresie celu.
+
+     Pomarańczowy:
+     jesteśmy blisko limitu.
+
+     Czerwony:
+     cel został przekroczony.
+
+     Przy bilansie energetycznym liczymy
+     procent względem celu.
+  */
+
+  const ratio =
+    goals.kcal > 0
+      ? (netCalories / goals.kcal) * 100
+      : 0;
+
+
+  let status =
+    "good";
+
+
+  if (
+    goals.kcal <= 0
+  ) {
+
+    status =
+      "low";
+
+  } else if (
+    ratio > 100
+  ) {
+
+    status =
+      "danger";
+
+  } else if (
+    ratio >= 85
+  ) {
+
+    status =
+      "warning";
+
+  }
+
+
+  if (balanceEl) {
+
+    balanceEl.textContent =
+      `${fmt(
+        netCalories
+      )} kcal`;
+
+    balanceEl.classList.remove(
+      "good",
+      "warning",
+      "danger",
+      "low"
+    );
+
+    balanceEl.classList.add(
+      status
+    );
+
+  }
+
+
+  if (balanceIcon) {
+
+    if (status === "danger") {
+
+      balanceIcon.textContent =
+        "🔴";
+
+    } else if (
+      status === "warning"
+    ) {
+
+      balanceIcon.textContent =
+        "🟠";
+
+    } else if (
+      status === "good"
+    ) {
+
+      balanceIcon.textContent =
+        "🟢";
+
+    } else {
+
+      balanceIcon.textContent =
+        "⚖️";
+
+    }
+
+  }
+
+
+  /*
+     Jeżeli HTML ma dodatkowy element
+     na procent bilansu, również go obsługujemy.
+  */
+
+  const balancePercent =
+    document.getElementById(
+      "dashboardBalancePercent"
+    );
+
+
+  if (balancePercent) {
+
+    balancePercent.textContent =
+      goals.kcal > 0
+        ? `${Math.round(
+            ratio
+          )}% celu`
+        : "brak celu";
+
+  }
 }
 
 
@@ -2436,10 +3145,12 @@ function renderDashboardTraining() {
       "dashboardLastWorkoutTitle"
     );
 
+
   const lastMain =
     document.getElementById(
       "dashboardLastWorkoutMain"
     );
+
 
   const lastDate =
     document.getElementById(
@@ -2452,10 +3163,12 @@ function renderDashboardTraining() {
       "dashboardNextWorkoutTitle"
     );
 
+
   const nextMain =
     document.getElementById(
       "dashboardNextWorkoutMain"
     );
+
 
   const nextDate =
     document.getElementById(
@@ -2463,9 +3176,9 @@ function renderDashboardTraining() {
     );
 
 
-  /*
-    OSTATNI TRENING
-  */
+  /* =====================================================
+     OSTATNI TRENING
+  ===================================================== */
 
   const sortedCompleted =
     [...completedWorkouts]
@@ -2490,28 +3203,25 @@ function renderDashboardTraining() {
   if (!lastWorkout) {
 
     if (lastTitle) {
-
       lastTitle.textContent =
         "Brak treningów";
-
     }
 
 
     if (lastMain) {
 
       lastMain.innerHTML =
-        `<div class="dashboard-empty">
+        `
+        <div class="dashboard-empty">
           Nie zapisano jeszcze wykonanego treningu.
-        </div>`;
+        </div>
+        `;
 
     }
 
 
     if (lastDate) {
-
-      lastDate.textContent =
-        "";
-
+      lastDate.textContent = "";
     }
 
   } else {
@@ -2602,9 +3312,9 @@ function renderDashboardTraining() {
   }
 
 
-  /*
-    NAJBLIŻSZY PLAN
-  */
+  /* =====================================================
+     NAJBLIŻSZY PLAN
+  ===================================================== */
 
   const today =
     getToday();
@@ -2634,29 +3344,27 @@ function renderDashboardTraining() {
   if (!nextWorkout) {
 
     if (nextTitle) {
-
       nextTitle.textContent =
         "Brak planu";
-
     }
 
 
     if (nextMain) {
 
       nextMain.innerHTML =
-        `<div class="dashboard-empty">
+        `
+        <div class="dashboard-empty">
           Nie masz jeszcze zaplanowanego treningu.
-        </div>`;
+        </div>
+        `;
 
     }
 
 
     if (nextDate) {
-
-      nextDate.textContent =
-        "";
-
+      nextDate.textContent = "";
     }
+
 
     return;
   }
@@ -2773,59 +3481,109 @@ function renderHomeSummary() {
     sorted[0];
 
 
+  const burned =
+    document.getElementById(
+      "homeBurned"
+    );
+
+
+  if (!burned) {
+    return;
+  }
+
+
   if (!lastWorkout) {
 
-    const burned =
-      document.getElementById(
-        "homeBurned"
-      );
+    burned.textContent =
+      "0 kcal";
 
-
-    if (burned) {
-
-      burned.textContent =
-        "0 kcal";
-
-    }
-
-
-  } else {
-
-    const burned =
-      document.getElementById(
-        "homeBurned"
-      );
-
-
-    if (burned) {
-
-      const sameDay =
-        completedWorkouts.filter(
-          workout =>
-            workout.date ===
-            lastWorkout.date
-        );
-
-
-      const calories =
-        sameDay.reduce(
-          (sum, workout) =>
-            sum +
-            num(
-              workout.calories
-            ),
-          0
-        );
-
-
-      burned.textContent =
-        `${fmt(
-          calories
-        )} kcal`;
-
-    }
-
+    return;
   }
+
+
+  const sameDay =
+    completedWorkouts.filter(
+      workout =>
+        workout.date ===
+        lastWorkout.date
+    );
+
+
+  const calories =
+    sameDay.reduce(
+      (sum, workout) =>
+        sum +
+        num(
+          workout.calories
+        ),
+      0
+    );
+
+
+  burned.textContent =
+    `${fmt(
+      calories
+    )} kcal`;
+}
+
+
+/* =========================================================
+   PORZĄDKOWANIE STARYCH CELÓW
+========================================================= */
+
+/*
+   Jeżeli stary HTML posiada osobne pola celu
+   przy poszczególnych kafelkach, nie usuwamy danych.
+   Ukrywamy natomiast ich kontenery tylko wtedy,
+   gdy są jednoznacznie oznaczone jako stare pola celu.
+
+   Dzięki temu jeden centralny panel jest źródłem prawdy.
+*/
+
+function cleanupDuplicateGoalControls() {
+
+  const selectors = [
+
+    ".goal-kcal-control",
+    ".goal-protein-control",
+    ".goal-carbs-control",
+    ".goal-fat-control",
+
+    "[data-goal-control]",
+    "[data-duplicate-goal]"
+
+  ];
+
+
+  selectors.forEach(
+    selector => {
+
+      document
+        .querySelectorAll(selector)
+        .forEach(
+          element => {
+
+            /*
+               Nie ukrywamy naszego centralnego panelu.
+            */
+
+            if (
+              element.closest(
+                "#nutritionGoalsPanel"
+              )
+            ) {
+              return;
+            }
+
+
+            element.style.display =
+              "none";
+
+          }
+        );
+
+    }
+  );
 }
 
 
@@ -2835,6 +3593,17 @@ function renderHomeSummary() {
 
 function initTrainingPage() {
 
+  /*
+     Najpierw tworzymy / odnajdujemy centralny
+     panel celów.
+  */
+
+  ensureNutritionGoalsPanel();
+
+  setupNutritionGoals();
+
+  cleanupDuplicateGoalControls();
+
   setupNavigation();
 
   setupCalendar();
@@ -2842,6 +3611,8 @@ function initTrainingPage() {
   setupPlanForm();
 
   setupWorkoutForm();
+
+  renderNutritionGoals();
 
   renderCalendar();
 
@@ -2885,55 +3656,4 @@ function initTrainingPage() {
 ========================================================= */
 
 window.addEventListener(
-  "hashchange",
-  () => {
-
-    if (
-      window.location.hash ===
-      "#training"
-    ) {
-
-      showPage(
-        "training"
-      );
-
-    } else if (
-      window.location.hash ===
-      "#nutrition"
-    ) {
-
-      showPage(
-        "nutrition"
-      );
-
-    } else {
-
-      showPage(
-        "home"
-      );
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   START DOM
-========================================================= */
-
-document.addEventListener(
-  "DOMContentLoaded",
-  initTrainingPage
-);
-
-
-/* =========================================================
-   PUBLIC FUNCTIONS
-========================================================= */
-
-window.deletePlannedWorkout =
-  deletePlannedWorkout;
-
-window.deleteCompletedWorkout =
-  deleteCompletedWorkout;
+  "hash
