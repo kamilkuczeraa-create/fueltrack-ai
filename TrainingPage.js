@@ -1,27 +1,23 @@
 /* =========================================================
    FuelTrack AI — TrainingPage.js
-   WERSJA POPRAWIONA
-
+   WERSJA NAPRAWIONA
    - jeden wspólny system Celów żywieniowych
    - cele kcal / białko / węgle / tłuszcz
-   - cele zapisują się w localStorage
-   - GŁÓWNA ma jeden panel celów
-   - ŻYWIENIE NIE OTRZYMUJE DRUGIEGO PANELU Z TEGO PLIKU
-   - wszystkie strony korzystają z GOALS_KEY
+   - cele zapisywane w localStorage
    - paski postępu korzystają z tych samych celów
    - Bilans energetyczny korzysta z tych samych celów
    - agregowanie danych Fitatu z FOOD_KEY
-   - nawigacja Home / Żywienie / Trening
+   - odporna na brak pojedynczych elementów HTML
+   - naprawiona nawigacja Home / Żywienie / Trening
    - kalendarz + plan + wykonane treningi
    - do 4 screenów treningu
+   - PANEL CELÓW JEST WYŁĄCZNIE W „ŻYWIENIE”
 ========================================================= */
-
 
 const WORKOUT_KEY = "fueltrack_workouts_v04";
 const PLAN_KEY = "fueltrack_training_plan_v01";
 const FOOD_KEY = "fueltrack_food_v04";
 const GOALS_KEY = "fueltrack_goals_v04";
-
 
 const DEFAULT_GOALS = {
   kcal: 2200,
@@ -30,43 +26,24 @@ const DEFAULT_GOALS = {
   fat: 70
 };
 
-
-let plannedWorkouts =
-  loadJSON(
-    PLAN_KEY,
-    []
-  );
-
-
-let completedWorkouts =
-  loadJSON(
-    WORKOUT_KEY,
-    []
-  );
-
+let plannedWorkouts = loadJSON(PLAN_KEY, []);
+let completedWorkouts = loadJSON(WORKOUT_KEY, []);
 
 if (!Array.isArray(plannedWorkouts)) {
   plannedWorkouts = [];
 }
 
-
 if (!Array.isArray(completedWorkouts)) {
   completedWorkouts = [];
 }
 
-
-let calendarDate =
-  new Date();
-
-
-let selectedWorkoutScreens =
-  [];
+let calendarDate = new Date();
+let selectedWorkoutScreens = [];
 
 
 /* =========================================================
    HELPERS
 ========================================================= */
-
 
 function $(id) {
   return document.getElementById(id);
@@ -83,26 +60,19 @@ function num(value) {
     return 0;
   }
 
+  const n = parseFloat(
+    String(value)
+      .replace(",", ".")
+      .replace(/[^\d.-]/g, "")
+  );
 
-  const n =
-    parseFloat(
-      String(value)
-        .replace(",", ".")
-        .replace(/[^\d.-]/g, "")
-    );
-
-
-  return Number.isFinite(n)
-    ? n
-    : 0;
+  return Number.isFinite(n) ? n : 0;
 }
 
 
 function fmt(value) {
 
-  return Number(
-    value || 0
-  ).toLocaleString(
+  return Number(value || 0).toLocaleString(
     "pl-PL",
     {
       maximumFractionDigits: 2
@@ -113,9 +83,7 @@ function fmt(value) {
 
 function esc(value) {
 
-  return String(
-    value ?? ""
-  )
+  return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -126,18 +94,12 @@ function esc(value) {
 
 function getToday() {
 
-  const d =
-    new Date();
-
+  const d = new Date();
 
   return [
     d.getFullYear(),
-    String(
-      d.getMonth() + 1
-    ).padStart(2, "0"),
-    String(
-      d.getDate()
-    ).padStart(2, "0")
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0")
   ].join("-");
 }
 
@@ -148,41 +110,29 @@ function formatDate(date) {
     return "";
   }
 
+  const parts = String(date).split("-");
 
-  const parts =
-    String(date).split("-");
-
-
-  if (
-    parts.length !== 3
-  ) {
+  if (parts.length !== 3) {
     return String(date);
   }
-
 
   return `${parts[2]}.${parts[1]}.${parts[0]}`;
 }
 
 
-function loadJSON(
-  key,
-  fallback
-) {
+function loadJSON(key, fallback) {
 
   try {
 
     const raw =
       localStorage.getItem(key);
 
-
     if (!raw) {
       return fallback;
     }
 
-
     const parsed =
       JSON.parse(raw);
-
 
     return parsed ?? fallback;
 
@@ -193,7 +143,6 @@ function loadJSON(
       error
     );
 
-
     return fallback;
   }
 }
@@ -203,17 +152,12 @@ function saveData() {
 
   localStorage.setItem(
     PLAN_KEY,
-    JSON.stringify(
-      plannedWorkouts
-    )
+    JSON.stringify(plannedWorkouts)
   );
-
 
   localStorage.setItem(
     WORKOUT_KEY,
-    JSON.stringify(
-      completedWorkouts
-    )
+    JSON.stringify(completedWorkouts)
   );
 }
 
@@ -226,18 +170,13 @@ function showStatus(
   let status =
     $("status");
 
-
   if (!status) {
 
     status =
-      document.createElement(
-        "div"
-      );
-
+      document.createElement("div");
 
     status.id =
       "status";
-
 
     status.style.cssText = `
       position:fixed;
@@ -254,46 +193,36 @@ function showStatus(
       box-shadow:0 8px 30px rgba(0,0,0,.25);
     `;
 
-
     document.body.appendChild(
       status
     );
   }
 
-
   status.textContent =
     message;
-
 
   status.classList.remove(
     "hidden"
   );
 
-
   status.style.display =
     "block";
-
 
   clearTimeout(
     showStatus.timer
   );
 
-
   showStatus.timer =
-    setTimeout(
-      () => {
+    setTimeout(() => {
 
-        status.classList.add(
-          "hidden"
-        );
+      status.classList.add(
+        "hidden"
+      );
 
+      status.style.display =
+        "none";
 
-        status.style.display =
-          "none";
-
-      },
-      duration
-    );
+    }, duration);
 }
 
 
@@ -315,23 +244,19 @@ function dateToISO(date) {
    NAWIGACJA
 ========================================================= */
 
-
 function getPageElement(page) {
 
   if (page === "home") {
     return $("homePage");
   }
 
-
   if (page === "nutrition") {
     return $("nutritionPage");
   }
 
-
   if (page === "training") {
     return $("trainingPage");
   }
-
 
   return null;
 }
@@ -346,18 +271,15 @@ function showPage(page) {
   ].filter(Boolean);
 
 
-  pages.forEach(
-    el => {
+  pages.forEach(el => {
 
-      el.classList.add(
-        "hidden"
-      );
+    el.classList.add(
+      "hidden"
+    );
 
-
-      el.style.display =
-        "none";
-    }
-  );
+    el.style.display =
+      "none";
+  });
 
 
   const target =
@@ -370,7 +292,6 @@ function showPage(page) {
       `Nie znaleziono strony: ${page}`
     );
 
-
     return;
   }
 
@@ -379,25 +300,34 @@ function showPage(page) {
     "hidden"
   );
 
-
   target.style.display =
     "";
+
+
+  /*
+    WAŻNE:
+    Cele są renderowane tylko wtedy,
+    gdy otwieramy ŻYWIENIE.
+    Nigdy nie renderujemy panelu celów
+    na stronie głównej.
+  */
+
+  if (page === "nutrition") {
+
+    renderGoalsPanel();
+  }
 
 
   if (page === "home") {
 
     renderHomeSummary();
-
     renderDashboard();
-
-    renderGoalsPanel();
   }
 
 
   if (page === "training") {
 
     renderCalendar();
-
     renderWorkouts();
   }
 }
@@ -431,19 +361,6 @@ function navigate(page) {
 
 function setupNavigation() {
 
-  if (
-    document.body.dataset
-      .fueltrackNavigationBound
-  ) {
-    return;
-  }
-
-
-  document.body.dataset
-    .fueltrackNavigationBound =
-    "1";
-
-
   document.addEventListener(
     "click",
     event => {
@@ -463,17 +380,10 @@ function setupNavigation() {
 
 
       if (
-        target.id ===
-          "goTraining" ||
-
-        target.id ===
-          "dashboardLastWorkout" ||
-
-        target.id ===
-          "dashboardNextWorkout" ||
-
-        target.dataset.page ===
-          "training"
+        target.id === "goTraining" ||
+        target.id === "dashboardLastWorkout" ||
+        target.id === "dashboardNextWorkout" ||
+        target.dataset.page === "training"
       ) {
 
         navigate("training");
@@ -483,11 +393,8 @@ function setupNavigation() {
 
 
       if (
-        target.id ===
-          "goNutrition" ||
-
-        target.dataset.page ===
-          "nutrition"
+        target.id === "goNutrition" ||
+        target.dataset.page === "nutrition"
       ) {
 
         navigate("nutrition");
@@ -512,37 +419,35 @@ function handleHashRoute() {
     hash === "#training"
   ) {
 
-    showPage("training");
+    showPage(
+      "training"
+    );
 
   } else if (
     hash === "#nutrition"
   ) {
 
-    showPage("nutrition");
+    showPage(
+      "nutrition"
+    );
 
   } else {
 
-    showPage("home");
+    showPage(
+      "home"
+    );
   }
 }
 
 
 /* =========================================================
    CELE ŻYWIENIOWE
-
+   =========================================================
    WAŻNE:
-   Ten plik przechowuje tylko wspólne dane celów.
-
-   Panel UI jest tworzony WYŁĄCZNIE na GŁÓWNEJ.
-   Nie szukamy już:
-   - goalsNutrition
-   - nutritionGoals
-   - goalsPanel
-
-   Dzięki temu TrainingPage.js nie tworzy drugiego
-   panelu na stronie ŻYWIENIE.
+   Ten system jest wspólny dla całej aplikacji,
+   ale EDYCJA / PANEL celów znajduje się wyłącznie
+   na stronie ŻYWIENIE.
 ========================================================= */
-
 
 function getNutritionGoals() {
 
@@ -555,42 +460,34 @@ function getNutritionGoals() {
 
   return {
 
-    kcal:
-      num(
-        saved.kcal ??
-        saved.calories ??
-        saved.calorieGoal ??
-        saved.dailyCalories ??
-        DEFAULT_GOALS.kcal
-      ),
+    kcal: num(
+      saved.kcal ??
+      saved.calories ??
+      saved.calorieGoal ??
+      saved.dailyCalories ??
+      DEFAULT_GOALS.kcal
+    ),
 
+    protein: num(
+      saved.protein ??
+      saved.proteinGoal ??
+      saved.dailyProtein ??
+      DEFAULT_GOALS.protein
+    ),
 
-    protein:
-      num(
-        saved.protein ??
-        saved.proteinGoal ??
-        saved.dailyProtein ??
-        DEFAULT_GOALS.protein
-      ),
+    carbs: num(
+      saved.carbs ??
+      saved.carbsGoal ??
+      saved.dailyCarbs ??
+      DEFAULT_GOALS.carbs
+    ),
 
-
-    carbs:
-      num(
-        saved.carbs ??
-        saved.carbsGoal ??
-        saved.dailyCarbs ??
-        DEFAULT_GOALS.carbs
-      ),
-
-
-    fat:
-      num(
-        saved.fat ??
-        saved.fatGoal ??
-        saved.dailyFat ??
-        DEFAULT_GOALS.fat
-      )
-
+    fat: num(
+      saved.fat ??
+      saved.fatGoal ??
+      saved.dailyFat ??
+      DEFAULT_GOALS.fat
+    )
   };
 }
 
@@ -604,46 +501,32 @@ function saveNutritionGoals(
     kcal:
       Math.max(
         0,
-        num(
-          goals.kcal
-        )
+        num(goals.kcal)
       ),
-
 
     protein:
       Math.max(
         0,
-        num(
-          goals.protein
-        )
+        num(goals.protein)
       ),
-
 
     carbs:
       Math.max(
         0,
-        num(
-          goals.carbs
-        )
+        num(goals.carbs)
       ),
-
 
     fat:
       Math.max(
         0,
-        num(
-          goals.fat
-        )
+        num(goals.fat)
       )
-
   };
 
 
   localStorage.setItem(
     GOALS_KEY,
-    JSON.stringify(
-      clean
-    )
+    JSON.stringify(clean)
   );
 
 
@@ -651,16 +534,12 @@ function saveNutritionGoals(
 }
 
 
-/* =========================================================
-   STYLE PANELU CELÓW NA GŁÓWNEJ
-========================================================= */
-
-
 function ensureGoalsPanelStyles() {
 
   if (
     $("fueltrackGoalsPanelStyles")
   ) {
+
     return;
   }
 
@@ -686,7 +565,6 @@ function ensureGoalsPanelStyles() {
       box-shadow:0 4px 18px rgba(16,24,40,.05);
     }
 
-
     .fueltrack-goals-head {
       display:flex;
       align-items:flex-start;
@@ -695,12 +573,10 @@ function ensureGoalsPanelStyles() {
       margin-bottom:14px;
     }
 
-
     .fueltrack-goals-head h3 {
       margin:0;
       font-size:19px;
     }
-
 
     .fueltrack-goals-head p {
       margin:4px 0 0;
@@ -709,14 +585,11 @@ function ensureGoalsPanelStyles() {
       line-height:1.4;
     }
 
-
     .fueltrack-goals-grid {
       display:grid;
-      grid-template-columns:
-        repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px;
     }
-
 
     .fueltrack-goal-field label {
       display:block;
@@ -725,7 +598,6 @@ function ensureGoalsPanelStyles() {
       color:#667085;
       margin-bottom:5px;
     }
-
 
     .fueltrack-goal-field input {
       width:100%;
@@ -739,13 +611,11 @@ function ensureGoalsPanelStyles() {
       font-size:15px;
     }
 
-
     .fueltrack-goals-actions {
       display:flex;
       justify-content:flex-end;
       margin-top:12px;
     }
-
 
     .fueltrack-goals-save {
       border:0;
@@ -757,15 +627,12 @@ function ensureGoalsPanelStyles() {
       cursor:pointer;
     }
 
-
     .fueltrack-goal-summary {
       display:grid;
-      grid-template-columns:
-        repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px;
       margin-top:12px;
     }
-
 
     .fueltrack-goal-summary-item {
       padding:11px;
@@ -773,29 +640,24 @@ function ensureGoalsPanelStyles() {
       background:#f7f8fa;
     }
 
-
     .fueltrack-goal-summary-item small {
       display:block;
       color:#667085;
       margin-bottom:3px;
     }
 
-
     .fueltrack-goal-summary-item b {
       font-size:16px;
     }
-
 
     @media (max-width:700px) {
 
       .fueltrack-goals-grid,
       .fueltrack-goal-summary {
-        grid-template-columns:
-          repeat(2,minmax(0,1fr));
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
     }
-
   `;
 
 
@@ -806,53 +668,85 @@ function ensureGoalsPanelStyles() {
 
 
 /* =========================================================
-   PANEL CELÓW — TYLKO GŁÓWNA
-
-   Nie używamy już findGoalsMount().
-   Nie montujemy panelu do ŻYWIENIA.
+   MIEJSCE DLA PANELU CELÓW
+   =========================================================
+   KRYTYCZNA ZMIANA:
+   NIE MA tutaj $("homePage").
+   Panel może zostać zamontowany WYŁĄCZNIE
+   w kontenerze strony ŻYWIENIE.
 ========================================================= */
+
+function findGoalsMount() {
+
+  return (
+    $("goalsNutrition") ||
+    $("nutritionGoals") ||
+    $("goalsPanel")
+  );
+}
 
 
 function renderGoalsPanel() {
 
-  const home =
-    $("homePage");
+  ensureGoalsPanelStyles();
 
 
-  if (!home) {
+  const mount =
+    findGoalsMount();
+
+
+  /*
+    Jeżeli strona Żywienie nie ma kontenera
+    na cele, NIE tworzymy panelu na Home.
+
+    To jest celowe.
+  */
+
+  if (!mount) {
+
+    console.warn(
+      "Nie znaleziono kontenera celów żywieniowych w Żywieniu."
+    );
+
     return;
   }
-
-
-  ensureGoalsPanelStyles();
 
 
   let panel =
     $("fueltrackGoalsPanel");
 
 
-  if (!panel) {
+  /*
+    Jeżeli panel już istnieje, sprawdzamy,
+    czy faktycznie znajduje się w kontenerze
+    Żywienia.
+  */
+
+  if (panel) {
+
+    if (
+      !mount.contains(panel)
+    ) {
+
+      mount.appendChild(
+        panel
+      );
+    }
+
+  } else {
 
     panel =
       document.createElement(
         "section"
       );
 
-
     panel.id =
       "fueltrackGoalsPanel";
-
 
     panel.className =
       "fueltrack-goals-panel";
 
-
-    /*
-      Jedyny dozwolony mount:
-      HOME.
-    */
-
-    home.appendChild(
+    mount.appendChild(
       panel
     );
   }
@@ -887,9 +781,7 @@ function renderGoalsPanel() {
 
       <div class="fueltrack-goal-field">
 
-        <label
-          for="fuelGoalKcal"
-        >
+        <label for="fuelGoalKcal">
           Kalorie (kcal)
         </label>
 
@@ -908,9 +800,7 @@ function renderGoalsPanel() {
 
       <div class="fueltrack-goal-field">
 
-        <label
-          for="fuelGoalProtein"
-        >
+        <label for="fuelGoalProtein">
           Białko (g)
         </label>
 
@@ -929,9 +819,7 @@ function renderGoalsPanel() {
 
       <div class="fueltrack-goal-field">
 
-        <label
-          for="fuelGoalCarbs"
-        >
+        <label for="fuelGoalCarbs">
           Węglowodany (g)
         </label>
 
@@ -950,9 +838,7 @@ function renderGoalsPanel() {
 
       <div class="fueltrack-goal-field">
 
-        <label
-          for="fuelGoalFat"
-        >
+        <label for="fuelGoalFat">
           Tłuszcz (g)
         </label>
 
@@ -986,9 +872,7 @@ function renderGoalsPanel() {
 
     <div class="fueltrack-goal-summary">
 
-      <div
-        class="fueltrack-goal-summary-item"
-      >
+      <div class="fueltrack-goal-summary-item">
 
         <small>
           Kalorie
@@ -1003,9 +887,7 @@ function renderGoalsPanel() {
       </div>
 
 
-      <div
-        class="fueltrack-goal-summary-item"
-      >
+      <div class="fueltrack-goal-summary-item">
 
         <small>
           Białko
@@ -1020,9 +902,7 @@ function renderGoalsPanel() {
       </div>
 
 
-      <div
-        class="fueltrack-goal-summary-item"
-      >
+      <div class="fueltrack-goal-summary-item">
 
         <small>
           Węglowodany
@@ -1037,9 +917,7 @@ function renderGoalsPanel() {
       </div>
 
 
-      <div
-        class="fueltrack-goal-summary-item"
-      >
+      <div class="fueltrack-goal-summary-item">
 
         <small>
           Tłuszcz
@@ -1062,14 +940,7 @@ function renderGoalsPanel() {
     $("saveNutritionGoalsBtn");
 
 
-  if (
-    saveButton &&
-    !saveButton.dataset.bound
-  ) {
-
-    saveButton.dataset.bound =
-      "1";
-
+  if (saveButton) {
 
     saveButton.addEventListener(
       "click",
@@ -1082,16 +953,13 @@ function renderGoalsPanel() {
               $("fuelGoalKcal")
                 ?.value,
 
-
             protein:
               $("fuelGoalProtein")
                 ?.value,
 
-
             carbs:
               $("fuelGoalCarbs")
                 ?.value,
-
 
             fat:
               $("fuelGoalFat")
@@ -1100,7 +968,21 @@ function renderGoalsPanel() {
           });
 
 
+        /*
+          Odświeżamy panel WYŁĄCZNIE
+          w Żywieniu.
+        */
+
         renderGoalsPanel();
+
+
+        /*
+          Główna korzysta z tych samych
+          celów, więc odświeżamy jej
+          paski postępu.
+
+          Nie renderujemy tutaj panelu celów.
+        */
 
         renderDashboard();
 
@@ -1127,13 +1009,16 @@ function renderGoalsPanel() {
    FOOD / FITATU
 ========================================================= */
 
-
 function getStoredFood() {
 
-  return loadJSON(
-    FOOD_KEY,
-    []
-  );
+  const food =
+    loadJSON(
+      FOOD_KEY,
+      []
+    );
+
+
+  return food;
 }
 
 
@@ -1271,6 +1156,11 @@ function extractNutrition(
   }
 
 
+  /*
+     Wariant 1:
+     obiekt z datą jako kluczem
+  */
+
   if (
     !Array.isArray(food) &&
     typeof food === "object" &&
@@ -1296,7 +1186,6 @@ function extractNutrition(
           ]
         ),
 
-
       protein:
         getFoodNumber(
           day,
@@ -1309,7 +1198,6 @@ function extractNutrition(
           ]
         ),
 
-
       carbs:
         getFoodNumber(
           day,
@@ -1321,7 +1209,6 @@ function extractNutrition(
             "Weglowodany"
           ]
         ),
-
 
       fat:
         getFoodNumber(
@@ -1352,12 +1239,23 @@ function extractNutrition(
   }
 
 
+  /*
+     Wariant 2:
+     Fitatu = wiele wierszy na dany dzień.
+     Sumujemy wszystkie produkty.
+  */
+
   const rows =
     food.filter(
-      row =>
-        extractDateFromFoodRow(
-          row
-        ) === date
+      row => {
+
+        return (
+          extractDateFromFoodRow(
+            row
+          ) === date
+        );
+
+      }
     );
 
 
@@ -1491,9 +1389,7 @@ function findLatestFoodDate() {
 
 
   return dates.length
-    ? dates[
-        dates.length - 1
-      ]
+    ? dates[dates.length - 1]
     : "";
 }
 
@@ -1502,7 +1398,6 @@ function findLatestFoodDate() {
    PROGRESS
 ========================================================= */
 
-
 function getProgressState(
   current,
   goal
@@ -1510,7 +1405,6 @@ function getProgressState(
 
   const value =
     num(current);
-
 
   const target =
     num(goal);
@@ -1529,10 +1423,7 @@ function getProgressState(
 
 
   const rawPercent =
-    (
-      value /
-      target
-    ) * 100;
+    (value / target) * 100;
 
 
   let state =
@@ -1575,12 +1466,9 @@ function getProgressState(
         )
       ),
 
-
     rawPercent,
 
-
     state
-
   };
 }
 
@@ -1598,14 +1486,11 @@ function setDashboardProgress(
   const bar =
     $(barId);
 
-
   const percent =
     $(percentId);
 
-
   const remaining =
     $(remainingId);
-
 
   const valueElement =
     $(valueId);
@@ -1623,7 +1508,6 @@ function setDashboardProgress(
 
   const current =
     num(value);
-
 
   const target =
     num(goal);
@@ -1668,10 +1552,8 @@ function setDashboardProgress(
     percent.textContent =
       "—";
 
-
     remaining.textContent =
       "brak celu";
-
 
     return;
   }
@@ -1719,7 +1601,6 @@ function setDashboardProgress(
 /* =========================================================
    PLANOWANIE
 ========================================================= */
-
 
 function setupPlanForm() {
 
@@ -1798,7 +1679,6 @@ function addPlannedWorkout() {
       "Wybierz datę treningu."
     );
 
-
     return;
   }
 
@@ -1813,7 +1693,6 @@ function addPlannedWorkout() {
       "Wpisz nazwę, dystans albo opis treningu."
     );
 
-
     return;
   }
 
@@ -1826,19 +1705,12 @@ function addPlannedWorkout() {
         .toString(36)
         .slice(2),
 
-
     date,
-
     type,
-
     name,
-
     calories,
-
     distance,
-
     note
-
   };
 
 
@@ -1849,12 +1721,9 @@ function addPlannedWorkout() {
 
   saveData();
 
-
   clearPlanForm();
 
-
   renderCalendar();
-
   renderDashboard();
 
 
@@ -1879,9 +1748,9 @@ function clearPlanForm() {
       const el =
         $(id);
 
-
       if (el) {
-        el.value = "";
+        el.value =
+          "";
       }
     }
   );
@@ -1892,6 +1761,7 @@ function clearPlanForm() {
 
 
   if (date) {
+
     date.value =
       getToday();
   }
@@ -1902,6 +1772,7 @@ function clearPlanForm() {
 
 
   if (type) {
+
     type.value =
       "Easy";
   }
@@ -1924,9 +1795,7 @@ function deletePlannedWorkout(
 
   saveData();
 
-
   renderCalendar();
-
   renderDashboard();
 
 
@@ -1951,12 +1820,10 @@ function getPlansForDate(
    KALENDARZ
 ========================================================= */
 
-
 function setupCalendar() {
 
   const prev =
     $("prevMonth");
-
 
   const next =
     $("nextMonth");
@@ -1976,10 +1843,8 @@ function setupCalendar() {
       () => {
 
         calendarDate.setMonth(
-          calendarDate.getMonth() -
-          1
+          calendarDate.getMonth() - 1
         );
-
 
         renderCalendar();
       }
@@ -2001,10 +1866,8 @@ function setupCalendar() {
       () => {
 
         calendarDate.setMonth(
-          calendarDate.getMonth() +
-          1
+          calendarDate.getMonth() + 1
         );
-
 
         renderCalendar();
       }
@@ -2017,7 +1880,6 @@ function renderCalendar() {
 
   const title =
     $("calendarTitle");
-
 
   const grid =
     $("calendarGrid");
@@ -2033,7 +1895,6 @@ function renderCalendar() {
 
   const year =
     calendarDate.getFullYear();
-
 
   const month =
     calendarDate.getMonth();
@@ -2113,9 +1974,7 @@ function renderCalendar() {
 
 
     let dayNumber;
-
     let date;
-
     let isCurrentMonth =
       true;
 
@@ -2327,6 +2186,7 @@ function renderCalendar() {
 
 
         if (planDate) {
+
           planDate.value =
             date;
         }
@@ -2337,6 +2197,7 @@ function renderCalendar() {
 
 
         if (workoutDate) {
+
           workoutDate.value =
             date;
         }
@@ -2360,16 +2221,13 @@ function renderCalendar() {
    WYKONANE TRENINGI
 ========================================================= */
 
-
 function setupWorkoutForm() {
 
   const addBtn =
     $("addWorkoutBtn");
 
-
   const cancelBtn =
     $("cancelWorkoutBtn");
-
 
   const saveBtn =
     $("saveWorkoutBtn");
@@ -2450,7 +2308,6 @@ function setupWorkoutForm() {
           form.classList.add(
             "hidden"
           );
-
 
           form.style.display =
             "none";
@@ -2553,7 +2410,6 @@ function addCompletedWorkout() {
       "Wpisz przynajmniej rodzaj, dystans albo czas treningu."
     );
 
-
     return;
   }
 
@@ -2566,29 +2422,17 @@ function addCompletedWorkout() {
         .toString(36)
         .slice(2),
 
-
     date,
-
     type,
-
     distance,
-
     time,
-
     pace,
-
     hr,
-
     maxHr,
-
     calories,
-
     cadence,
-
     elevation,
-
     note,
-
 
     screens:
       [
@@ -2605,7 +2449,6 @@ function addCompletedWorkout() {
 
   saveData();
 
-
   clearWorkoutForm();
 
 
@@ -2619,16 +2462,13 @@ function addCompletedWorkout() {
       "hidden"
     );
 
-
     form.style.display =
       "none";
   }
 
 
   renderCalendar();
-
   renderWorkouts();
-
   renderDashboard();
 
 
@@ -2659,8 +2499,8 @@ function clearWorkoutForm() {
       const el =
         $(id);
 
-
       if (el) {
+
         el.value =
           "";
       }
@@ -2673,6 +2513,7 @@ function clearWorkoutForm() {
 
 
   if (date) {
+
     date.value =
       getToday();
   }
@@ -2683,6 +2524,7 @@ function clearWorkoutForm() {
 
 
   if (file) {
+
     file.value =
       "";
   }
@@ -2723,11 +2565,8 @@ function deleteCompletedWorkout(
 
   saveData();
 
-
   renderCalendar();
-
   renderWorkouts();
-
   renderDashboard();
 
 
@@ -2740,7 +2579,6 @@ function deleteCompletedWorkout(
 /* =========================================================
    SCREENY
 ========================================================= */
-
 
 function setupScreens() {
 
@@ -2883,7 +2721,6 @@ function renderScreensPreview() {
    WYŚWIETLANIE TRENINGÓW
 ========================================================= */
 
-
 function renderWorkouts(
   filterDate = null
 ) {
@@ -2928,11 +2765,9 @@ function renderWorkouts(
   ) {
 
     container.innerHTML =
-      `
-        <div class="empty">
-          Brak zapisanych treningów.
-        </div>
-      `;
+      `<div class="empty">
+        Brak zapisanych treningów.
+      </div>`;
 
 
     return;
@@ -2971,14 +2806,12 @@ function renderWorkoutCard(
           "Trening"
         )}
 
-        <div
-          style="
-            font-size:13px;
-            color:#777e8d;
-            font-weight:600;
-            margin-top:4px;
-          "
-        >
+        <div style="
+          font-size:13px;
+          color:#777e8d;
+          font-weight:600;
+          margin-top:4px;
+        ">
 
           ${formatDate(
             workout.date
@@ -3136,15 +2969,13 @@ function renderWorkoutCard(
       ${
         workout.note
           ? `
-            <div
-              style="
-                margin-top:14px;
-                border-top:1px solid #e4e6eb;
-                padding-top:12px;
-                color:#555;
-                line-height:1.4;
-              "
-            >
+            <div style="
+              margin-top:14px;
+              border-top:1px solid #e4e6eb;
+              padding-top:12px;
+              color:#555;
+              line-height:1.4;
+            ">
               📝 ${esc(
                 workout.note
               )}
@@ -3204,7 +3035,6 @@ function renderWorkoutCard(
 /* =========================================================
    DASHBOARD
 ========================================================= */
-
 
 function getDashboardNutritionDate() {
 
@@ -3447,7 +3277,6 @@ function renderDashboard() {
    DASHBOARD — TRENINGI
 ========================================================= */
 
-
 function renderDashboardTraining() {
 
   const lastTitle =
@@ -3511,12 +3340,9 @@ function renderDashboardTraining() {
     if (lastMain) {
 
       lastMain.innerHTML =
-        `
-          <div class="dashboard-empty">
-            Nie zapisano jeszcze
-            wykonanego treningu.
-          </div>
-        `;
+        `<div class="dashboard-empty">
+          Nie zapisano jeszcze wykonanego treningu.
+        </div>`;
     }
 
 
@@ -3649,12 +3475,9 @@ function renderDashboardTraining() {
     if (nextMain) {
 
       nextMain.innerHTML =
-        `
-          <div class="dashboard-empty">
-            Nie masz jeszcze
-            zaplanowanego treningu.
-          </div>
-        `;
+        `<div class="dashboard-empty">
+          Nie masz jeszcze zaplanowanego treningu.
+        </div>`;
     }
 
 
@@ -3755,7 +3578,6 @@ function renderDashboardTraining() {
    HOME — STARE PODSUMOWANIE
 ========================================================= */
 
-
 function renderHomeSummary() {
 
   const sorted =
@@ -3797,7 +3619,6 @@ function renderHomeSummary() {
     burned.textContent =
       "0 kcal";
 
-
     return;
   }
 
@@ -3832,8 +3653,12 @@ function renderHomeSummary() {
    START
 ========================================================= */
 
-
 function initTrainingPage() {
+
+  /*
+    Ustawienia i elementy mogą być ładowane razem z app.js,
+    dlatego inicjalizacja jest bezpieczna i idempotentna.
+  */
 
   setupNavigation();
 
@@ -3845,11 +3670,15 @@ function initTrainingPage() {
 
 
   /*
-    Panel celów jest tworzony tylko na HOME.
-    Nigdy na ŻYWIENIU.
-  */
+    UWAGA:
+    NIE wywołujemy tutaj renderGoalsPanel().
 
-  renderGoalsPanel();
+    Panel celów zostanie utworzony dopiero
+    przy wejściu na stronę ŻYWIENIE.
+
+    Dzięki temu nie ma możliwości,
+    żeby został automatycznie dodany do HOME.
+  */
 
 
   renderCalendar();
@@ -3880,7 +3709,6 @@ document.addEventListener(
 /* =========================================================
    PUBLIC FUNCTIONS
 ========================================================= */
-
 
 window.deletePlannedWorkout =
   deletePlannedWorkout;
