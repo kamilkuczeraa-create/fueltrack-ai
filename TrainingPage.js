@@ -1,19 +1,3 @@
-/* =========================================================
-   FuelTrack AI — TrainingPage.js
-   WERSJA NAPRAWIONA
-   - jeden wspólny system Celów żywieniowych
-   - cele kcal / białko / węgle / tłuszcz
-   - cele zapisywane w localStorage
-   - paski postępu korzystają z tych samych celów
-   - Bilans energetyczny korzysta z tych samych celów
-   - agregowanie danych Fitatu z FOOD_KEY
-   - odporna na brak pojedynczych elementów HTML
-   - naprawiona nawigacja Home / Żywienie / Trening
-   - kalendarz + plan + wykonane treningi
-   - do 4 screenów treningu
-   - PANEL CELÓW JEST WYŁĄCZNIE W „ŻYWIENIE”
-========================================================= */
-
 const WORKOUT_KEY = "fueltrack_workouts_v04";
 const PLAN_KEY = "fueltrack_training_plan_v01";
 const FOOD_KEY = "fueltrack_food_v04";
@@ -304,14 +288,6 @@ function showPage(page) {
     "";
 
 
-  /*
-    WAŻNE:
-    Cele są renderowane tylko wtedy,
-    gdy otwieramy ŻYWIENIE.
-    Nigdy nie renderujemy panelu celów
-    na stronie głównej.
-  */
-
   if (page === "nutrition") {
 
     renderGoalsPanel();
@@ -442,11 +418,6 @@ function handleHashRoute() {
 
 /* =========================================================
    CELE ŻYWIENIOWE
-   =========================================================
-   WAŻNE:
-   Ten system jest wspólny dla całej aplikacji,
-   ale EDYCJA / PANEL celów znajduje się wyłącznie
-   na stronie ŻYWIENIE.
 ========================================================= */
 
 function getNutritionGoals() {
@@ -669,20 +640,50 @@ function ensureGoalsPanelStyles() {
 
 /* =========================================================
    MIEJSCE DLA PANELU CELÓW
-   =========================================================
-   KRYTYCZNA ZMIANA:
-   NIE MA tutaj $("homePage").
-   Panel może zostać zamontowany WYŁĄCZNIE
-   w kontenerze strony ŻYWIENIE.
 ========================================================= */
 
 function findGoalsMount() {
 
+  const nutritionPage =
+    $("nutritionPage");
+
+  if (!nutritionPage) {
+    return null;
+  }
+
+
   return (
-    $("goalsNutrition") ||
-    $("nutritionGoals") ||
-    $("goalsPanel")
+    nutritionPage.querySelector("#goalsNutrition") ||
+    nutritionPage.querySelector("#nutritionGoals") ||
+    nutritionPage.querySelector("#goalsPanel") ||
+    nutritionPage
   );
+}
+
+
+function removeGoalsPanelFromHome() {
+
+  const panel =
+    $("fueltrackGoalsPanel");
+
+  if (!panel) {
+    return;
+  }
+
+
+  const nutritionPage =
+    $("nutritionPage");
+
+
+  if (
+    nutritionPage &&
+    nutritionPage.contains(panel)
+  ) {
+    return;
+  }
+
+
+  panel.remove();
 }
 
 
@@ -690,22 +691,17 @@ function renderGoalsPanel() {
 
   ensureGoalsPanelStyles();
 
+  removeGoalsPanelFromHome();
+
 
   const mount =
     findGoalsMount();
 
 
-  /*
-    Jeżeli strona Żywienie nie ma kontenera
-    na cele, NIE tworzymy panelu na Home.
-
-    To jest celowe.
-  */
-
   if (!mount) {
 
     console.warn(
-      "Nie znaleziono kontenera celów żywieniowych w Żywieniu."
+      "Nie znaleziono strony Żywienie dla panelu celów."
     );
 
     return;
@@ -715,12 +711,6 @@ function renderGoalsPanel() {
   let panel =
     $("fueltrackGoalsPanel");
 
-
-  /*
-    Jeżeli panel już istnieje, sprawdzamy,
-    czy faktycznie znajduje się w kontenerze
-    Żywienia.
-  */
 
   if (panel) {
 
@@ -968,21 +958,7 @@ function renderGoalsPanel() {
           });
 
 
-        /*
-          Odświeżamy panel WYŁĄCZNIE
-          w Żywieniu.
-        */
-
         renderGoalsPanel();
-
-
-        /*
-          Główna korzysta z tych samych
-          celów, więc odświeżamy jej
-          paski postępu.
-
-          Nie renderujemy tutaj panelu celów.
-        */
 
         renderDashboard();
 
@@ -1156,11 +1132,6 @@ function extractNutrition(
   }
 
 
-  /*
-     Wariant 1:
-     obiekt z datą jako kluczem
-  */
-
   if (
     !Array.isArray(food) &&
     typeof food === "object" &&
@@ -1238,12 +1209,6 @@ function extractNutrition(
     };
   }
 
-
-  /*
-     Wariant 2:
-     Fitatu = wiele wierszy na dany dzień.
-     Sumujemy wszystkie produkty.
-  */
 
   const rows =
     food.filter(
@@ -3031,7 +2996,6 @@ function renderWorkoutCard(
   `;
 }
 
-
 /* =========================================================
    DASHBOARD
 ========================================================= */
@@ -3670,14 +3634,8 @@ function initTrainingPage() {
 
 
   /*
-    UWAGA:
-    NIE wywołujemy tutaj renderGoalsPanel().
-
-    Panel celów zostanie utworzony dopiero
-    przy wejściu na stronę ŻYWIENIE.
-
-    Dzięki temu nie ma możliwości,
-    żeby został automatycznie dodany do HOME.
+    Panel celów NIE jest renderowany tutaj.
+    Pojawi się dopiero po wejściu w ŻYWIENIE.
   */
 
 
