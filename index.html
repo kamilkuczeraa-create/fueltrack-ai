@@ -1272,36 +1272,20 @@
 
       </div>
 
-      <label
-        for="fileInput"
-        style="
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          gap:10px;
-          min-height:58px;
-          padding:16px 20px;
-          border-radius:18px;
-          background:#3565e8;
-          color:white;
-          font-weight:800;
-          font-size:15px;
-          cursor:pointer;
-          box-shadow:0 8px 20px rgba(53,101,232,.20);
-          text-align:center;
-          -webkit-tap-highlight-color:transparent;
-        "
+      <button
+        class="primary-btn"
+        id="importBtn"
+        type="button"
       >
-        📥 Wybierz plik Fitatu CSV
+        + Import Fitatu
+      </button>
 
-        <input
-          id="fileInput"
-          type="file"
-          accept=".csv,text/csv"
-          class="hidden"
-        >
-
-      </label>
+      <input
+        id="fileInput"
+        type="file"
+        accept=".csv,text/csv"
+        class="hidden"
+      >
 
     </header>
 
@@ -2002,69 +1986,4 @@
           ></textarea>
 
 
-          <div class="form-full">
-
-            <label style="font-weight:750;">
-              Screeny z Garmina — maks. 4
-            </label>
-
-            <input
-              id="wScreens"
-              type="file"
-              accept="image/*"
-              multiple
-              style="margin-top:8px;"
-            >
-
-            <div
-              id="screensPreview"
-              class="screens-preview"
-            ></div>
-
-          </div>
-
-
-          <button
-            id="saveWorkoutBtn"
-            class="primary-btn"
-            type="button"
-          >
-            Zapisz trening
-          </button>
-
-
-          <button
-            id="cancelWorkoutBtn"
-            class="secondary-btn"
-            type="button"
-          >
-            Anuluj
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <div
-        id="workouts"
-        style="margin-top:18px;"
-      ></div>
-
-    </section>
-
-  </section>
-
-</main>
-
-
-<div
-  id="status"
-  class="status hidden"
-></div>
-
-
-<script src="TrainingPage.js"></script>
-
-</body>
-</html>
+          <div class="
