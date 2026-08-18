@@ -1272,20 +1272,36 @@
 
       </div>
 
-      <button
-        class="primary-btn"
-        id="importBtn"
-        type="button"
+      <label
+        for="fileInput"
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:10px;
+          min-height:58px;
+          padding:16px 20px;
+          border-radius:18px;
+          background:#3565e8;
+          color:white;
+          font-weight:800;
+          font-size:15px;
+          cursor:pointer;
+          box-shadow:0 8px 20px rgba(53,101,232,.20);
+          text-align:center;
+          -webkit-tap-highlight-color:transparent;
+        "
       >
-        + Import Fitatu
-      </button>
+        📥 Wybierz plik Fitatu CSV
 
-      <input
-        id="fileInput"
-        type="file"
-        accept=".csv,text/csv"
-        class="hidden"
-      >
+        <input
+          id="fileInput"
+          type="file"
+          accept=".csv,text/csv"
+          class="hidden"
+        >
+
+      </label>
 
     </header>
 
